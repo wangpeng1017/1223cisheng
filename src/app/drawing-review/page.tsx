@@ -27,10 +27,10 @@ export default function DrawingReviewPage() {
     const [activeTab, setActiveTab] = useState("preview")
 
     return (
-        <div className="flex h-[calc(100vh-64px)] overflow-hidden">
+        <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-white">
             {/* Main Review Area */}
-            <div className="flex-1 flex flex-col bg-muted/10 relative">
-                <div className="flex items-center justify-between p-4 border-b border-border/50 bg-background/40 backdrop-blur-md z-10">
+            <div className="flex-1 flex flex-col bg-slate-50 relative">
+                <div className="flex items-center justify-between p-4 border-b border-border bg-white/80 backdrop-blur-md z-10">
                     <div className="flex items-center gap-4">
                         <div>
                             <h2 className="text-base font-semibold">新款磁体单元 - 最终装配图</h2>
@@ -49,8 +49,8 @@ export default function DrawingReviewPage() {
 
                 {/* CAD Preview Simulation */}
                 <div className="flex-1 relative flex items-center justify-center p-8 overflow-hidden group">
-                    <div className="relative w-full h-full max-w-4xl border border-primary/20 bg-background/80 rounded-xl shadow-2xl overflow-hidden flex items-center justify-center">
-                        <div className="absolute inset-0 bg-[url('https://plus.unsplash.com/premium_photo-1663089680385-d72b2568600d?q=80&w=2072&auto=format&fit=crop')] bg-cover bg-center opacity-30 mix-blend-overlay" />
+                    <div className="relative w-full h-full max-w-4xl border border-primary/20 bg-slate-50 rounded-xl shadow-xl overflow-hidden flex items-center justify-center">
+                        <div className="absolute inset-0 bg-[url('https://plus.unsplash.com/premium_photo-1663089680385-d72b2568600d?q=80&w=2072&auto=format&fit=crop')] bg-cover bg-center opacity-10 grayscale" />
 
                         {/* Simulated Drawing Content */}
                         <div className="z-10 text-center space-y-4">
@@ -90,16 +90,16 @@ export default function DrawingReviewPage() {
                 </div>
 
                 {/* Toolbar Footer */}
-                <div className="p-4 border-t border-border/50 bg-background/40 backdrop-blur-md flex items-center justify-center gap-8">
-                    <Button className="gap-2 bg-primary/20 text-primary border border-primary/30 hover:bg-primary/30">
+                <div className="p-4 border-t border-border bg-white/80 backdrop-blur-md flex items-center justify-center gap-8">
+                    <Button className="gap-2 bg-primary text-white shadow-sm hover:bg-primary/90">
                         <MessageSquare className="h-4 w-4" />
                         添加批注
                     </Button>
-                    <Button variant="outline" className="gap-2 border-border/50">
+                    <Button variant="outline" className="gap-2 border-border shadow-sm">
                         <ScanLine className="h-4 w-4" />
                         尺寸自动识别
                     </Button>
-                    <Button variant="outline" className="gap-2 border-border/50">
+                    <Button variant="outline" className="gap-2 border-border shadow-sm">
                         <FileText className="h-4 w-4" />
                         导出评审报告
                     </Button>
@@ -107,9 +107,9 @@ export default function DrawingReviewPage() {
             </div>
 
             {/* Sidebar Insights Area */}
-            <div className="w-[400px] border-l border-border/50 bg-card/20 backdrop-blur-xl flex flex-col">
+            <div className="w-[400px] border-l border-border bg-slate-50/50 backdrop-blur-xl flex flex-col">
                 <Tabs defaultValue="insights" className="flex-1 flex flex-col">
-                    <div className="p-4 border-b border-border/50">
+                    <div className="p-4 border-b border-border">
                         <TabsList className="w-full bg-muted/30">
                             <TabsTrigger value="insights" className="flex-1 gap-2">
                                 <Sparkles className="h-4 w-4 text-amber-500" />
@@ -203,13 +203,13 @@ export default function DrawingReviewPage() {
                         </TabsContent>
                     </ScrollArea>
 
-                    <div className="p-4 border-t border-border/50 mt-auto bg-background/50">
+                    <div className="p-4 border-t border-border mt-auto bg-white/80">
                         <div className="flex items-center gap-2">
-                            <Avatar className="h-8 w-8">
+                            <Avatar className="h-8 w-8 border border-border">
                                 <AvatarImage src="https://github.com/shadcn.png" />
                             </Avatar>
                             <div className="flex-1 relative">
-                                <Input placeholder="输入意见..." className="pr-10 h-9 bg-muted/30" />
+                                <Input placeholder="输入意见..." className="pr-10 h-9 bg-white border-border" />
                                 <Button size="icon" variant="ghost" className="h-7 w-7 absolute right-1 top-1 text-primary">
                                     <ChevronRight className="h-4 w-4" />
                                 </Button>

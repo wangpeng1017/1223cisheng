@@ -152,24 +152,30 @@ export default function DashboardPage() {
           <CardContent className="h-[350px] pl-2">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="oklch(1 0 0 / 5%)" vertical={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis
                   dataKey="name"
-                  stroke="oklch(1 0 0 / 40%)"
+                  stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
                   tickLine={false}
                   axisLine={false}
                 />
                 <YAxis
-                  stroke="oklch(1 0 0 / 40%)"
+                  stroke="hsl(var(--muted-foreground))"
                   fontSize={12}
                   tickLine={false}
                   axisLine={false}
                   tickFormatter={(value) => `${value}%`}
                 />
                 <Tooltip
-                  cursor={{ fill: "oklch(1 0 0 / 5%)" }}
-                  contentStyle={{ backgroundColor: "oklch(0.14 0.02 240)", border: "1px solid oklch(0.25 0.02 240)", borderRadius: "8px" }}
+                  cursor={{ fill: "hsl(var(--muted) / 0.2)" }}
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                    color: "hsl(var(--foreground))"
+                  }}
+                  itemStyle={{ color: "hsl(var(--foreground))" }}
                 />
                 <Bar dataKey="value" fill="var(--primary)" radius={[4, 4, 0, 0]} barSize={32} />
                 <Bar dataKey="target" fill="oklch(1 0 0 / 10%)" radius={[4, 4, 0, 0]} barSize={32} />

@@ -79,20 +79,19 @@ export default function DFMPage() {
                                     ].map((s, i) => (
                                         <div key={i} className="relative flex items-start gap-6 pl-2">
                                             <div className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border shadow-sm z-10 ${s.status === "completed" ? "bg-emerald-500 border-emerald-500 text-white" :
-                                                    s.status === "in-progress" ? "bg-primary border-primary text-white" : "bg-white border-border text-muted-foreground"
+                                                s.status === "in-progress" ? "bg-primary border-primary text-white" : "bg-white border-border text-muted-foreground"
                                                 }`}>
                                                 {s.status === "completed" ? <FileCheck className="h-3 w-3" /> : <span className="text-[10px] font-bold">{i + 1}</span>}
                                             </div>
-                                            <div className="flex-1 rounded-xl p-4 border border-border bg-white hover:border-primary/50 transition-colors shadow-sm">
+                                            <div className="flex-1 rounded-xl p-4 border border-border bg-slate-50 hover:border-primary/50 transition-colors shadow-sm">
                                                 <div className="flex justify-between items-center mb-1">
-                                                    <span className="text-xs font-mono text-muted-foreground">{s.step}</span>
-                                                    <Badge variant="outline" className={`text-[10px] ${s.status === "completed" ? "text-emerald-500 border-emerald-500/20 bg-emerald-500/5" : ""
+                                                    <span className="text-xs font-mono font-semibold text-slate-500">{s.step}</span>
+                                                    <Badge variant="outline" className={`text-[10px] font-bold ${s.status === "completed" ? "text-emerald-600 border-emerald-600/30 bg-emerald-50" : "bg-white"
                                                         }`}>{s.status}</Badge>
                                                 </div>
-                                                <h4 className="font-semibold">{s.name}</h4>
-                                                <p className="text-xs text-muted-foreground mt-1">关键参数: {s.params}</p>
-                                            </div>
-                                        </div>
+                                                <h4 className="font-bold text-slate-900">{s.name}</h4>
+                                                <p className="text-xs text-slate-600 mt-1">关键参数: {s.params}</p>
+                                            </div>                 </div>
                                     ))}
                                 </div>
                             </CardContent>
@@ -186,15 +185,15 @@ export default function DFMPage() {
                                     { batch: "B20251218", qty: "100 PCS", result: "有瑕疵 (88%)", date: "12-18" },
                                     { batch: "B20251222", qty: "20 PCS", result: "待评审", date: "12-22" },
                                 ].map((b, i) => (
-                                    <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-muted/20 border border-border/30">
+                                    <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-border">
                                         <div className="flex items-center gap-3">
-                                            <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center font-bold text-primary text-xs">P</div>
+                                            <div className="h-8 w-8 rounded bg-primary flex items-center justify-center font-bold text-white text-xs shadow-sm">P</div>
                                             <div className="grid gap-0.5">
-                                                <span className="text-sm font-medium">{b.batch}</span>
-                                                <span className="text-[10px] text-muted-foreground">{b.qty} / {b.date}</span>
+                                                <span className="text-sm font-bold text-slate-800">{b.batch}</span>
+                                                <span className="text-[10px] text-slate-500 font-medium">{b.qty} / {b.date}</span>
                                             </div>
                                         </div>
-                                        <Badge variant={b.result === "待评审" ? "outline" : "secondary"}>{b.result}</Badge>
+                                        <Badge variant={b.result === "待评审" ? "outline" : "secondary"} className="font-bold">{b.result}</Badge>
                                     </div>
                                 ))}
                             </div>

@@ -94,30 +94,30 @@ export default function MTDPage() {
 
                 {/* Center Panel: Data Entry */}
                 <div className="lg:col-span-3 space-y-6">
-                    <Card className="border-primary/20 bg-primary/5">
-                        <CardHeader className="flex flex-row items-center justify-between bg-white/50 backdrop-blur-sm border-b border-primary/10">
+                    <Card className="border-primary/30 bg-white shadow-sm ring-1 ring-primary/5">
+                        <CardHeader className="flex flex-row items-center justify-between bg-slate-50 border-b border-border">
                             <div className="flex items-center gap-4">
-                                <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold">GT</div>
+                                <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center text-white font-bold shadow-sm">GT</div>
                                 <div>
-                                    <CardTitle className="text-md">磁通密度检测任务 - B20251222-01</CardTitle>
-                                    <CardDescription>关联项目: 新款磁体单元 Gen3 | 样本量: 5 PCS</CardDescription>
+                                    <CardTitle className="text-md text-foreground">磁通密度检测任务 - B20251222-01</CardTitle>
+                                    <CardDescription className="text-muted-foreground">关联项目: 新款磁体单元 Gen3 | 样本量: 5 PCS</CardDescription>
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-1">
-                                <Badge className="bg-primary">执行中</Badge>
-                                <span className="text-[10px] text-muted-foreground">操作员: 张工人</span>
+                                <Badge className="bg-primary text-white">执行中</Badge>
+                                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">操作员: 张工人</span>
                             </div>
                         </CardHeader>
                         <CardContent className="pt-6">
                             <Table>
                                 <TableHeader>
-                                    <TableRow className="bg-white/50 hover:bg-white/50">
-                                        <TableHead className="w-16">编号</TableHead>
-                                        <TableHead>测试项 (Test Item)</TableHead>
-                                        <TableHead>标准值 (Nominal)</TableHead>
-                                        <TableHead className="w-32">实测值 (Actual)</TableHead>
-                                        <TableHead className="w-24">结果</TableHead>
-                                        <TableHead className="text-right">趋势</TableHead>
+                                    <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
+                                        <TableHead className="w-16 font-bold text-slate-700">编号</TableHead>
+                                        <TableHead className="font-bold text-slate-700">测试项 (Test Item)</TableHead>
+                                        <TableHead className="font-bold text-slate-700">标准值 (Nominal)</TableHead>
+                                        <TableHead className="w-32 font-bold text-slate-700">实测值 (Actual)</TableHead>
+                                        <TableHead className="w-24 font-bold text-slate-700">结果</TableHead>
+                                        <TableHead className="text-right font-bold text-slate-700">趋势</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -128,24 +128,24 @@ export default function MTDPage() {
                                         { id: "S2", item: "边际温差 (Ref Temp)", std: "25.0 ±1.0", actual: "24.9", result: "OK" },
                                         { id: "S3", item: "中心磁通 (Center Gauss)", std: "435.0 ±15.0", actual: "428.0", result: "OK" },
                                     ].map((row, i) => (
-                                        <TableRow key={i} className="bg-white/30 border-primary/5 group">
-                                            <TableCell className="font-mono text-xs">{row.id}</TableCell>
-                                            <TableCell className="text-sm font-medium">{row.item}</TableCell>
-                                            <TableCell className="text-xs text-muted-foreground font-mono">{row.std}</TableCell>
+                                        <TableRow key={i} className="hover:bg-slate-50/50 border-border group transition-colors">
+                                            <TableCell className="font-mono text-xs text-slate-500 font-medium">{row.id}</TableCell>
+                                            <TableCell className="text-sm font-semibold text-slate-700">{row.item}</TableCell>
+                                            <TableCell className="text-xs text-slate-500 font-mono italic">{row.std}</TableCell>
                                             <TableCell>
                                                 <input
                                                     type="text"
                                                     defaultValue={row.actual}
-                                                    className="w-full h-8 px-2 text-sm bg-white border border-border rounded focus:ring-1 focus:ring-primary outline-none"
+                                                    className="w-full h-8 px-2 text-sm bg-white border border-border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none shadow-sm"
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="outline" className={`text-[10px] bg-emerald-500/5 text-emerald-600 border-emerald-500/20`}>
+                                                <Badge className={`text-[10px] bg-emerald-500 text-white`}>
                                                     {row.result}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-right">
-                                                <Rss className="h-4 w-4 ml-auto text-primary opacity-50" />
+                                            <TableCell className="text-right font-bold">
+                                                <Rss className="h-4 w-4 ml-auto text-primary" />
                                             </TableCell>
                                         </TableRow>
                                     ))}
