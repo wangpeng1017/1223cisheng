@@ -34,6 +34,14 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table"
 import { toast } from "sonner"
 
 const reviewItems = [
@@ -119,8 +127,8 @@ export default function DrawingReviewPage() {
                                     <div className="flex justify-between items-start mb-2">
                                         <Badge variant="outline" className="bg-white text-[10px] font-bold px-2 py-0.5">{item.id}</Badge>
                                         <Badge className={`font-bold ${item.status === '待评审' ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                                                item.status === '进行中' ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                                    'bg-emerald-50 text-emerald-600 border-emerald-200'
+                                            item.status === '进行中' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                                'bg-emerald-50 text-emerald-600 border-emerald-200'
                                             }`}>
                                             {item.status}
                                         </Badge>
