@@ -16,7 +16,8 @@ import {
     ChevronRight,
     Upload,
     UserCircle,
-    Package
+    Package,
+    History
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -260,7 +261,7 @@ export default function ProjectsPage() {
                             <React.Fragment key={project.id}>
                                 <TableRow
                                     className={`border-slate-50 transition-colors group ${project.status === "延期" ? "bg-rose-50/30 hover:bg-rose-50/50" :
-                                            project.status === "预警" ? "bg-amber-50/30 hover:bg-amber-50/50" : "hover:bg-slate-50"
+                                        project.status === "预警" ? "bg-amber-50/30 hover:bg-amber-50/50" : "hover:bg-slate-50"
                                         }`}
                                 >
                                     <TableCell>
@@ -313,7 +314,7 @@ export default function ProjectsPage() {
                                             <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
                                                 <div
                                                     className={`h-full rounded-full transition-all duration-500 ${project.status === "延期" ? "bg-rose-500" :
-                                                            project.status === "预警" ? "bg-amber-500" : "bg-primary"
+                                                        project.status === "预警" ? "bg-amber-500" : "bg-primary"
                                                         }`}
                                                     style={{ width: `${project.progress}%` }}
                                                 />
