@@ -168,17 +168,19 @@ export default function DashboardPage() {
                   tickFormatter={(value) => `${value}%`}
                 />
                 <Tooltip
-                  cursor={{ fill: "hsl(var(--muted) / 0.2)" }}
+                  cursor={{ fill: "hsl(var(--primary) / 0.05)" }}
                   contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
+                    backgroundColor: "white",
                     border: "1px solid hsl(var(--border))",
-                    borderRadius: "8px",
-                    color: "hsl(var(--foreground))"
+                    borderRadius: "12px",
+                    boxShadow: "0 10px 15px -3px rgb(0 0 0 / 0.1)",
+                    padding: "12px"
                   }}
-                  itemStyle={{ color: "hsl(var(--foreground))" }}
+                  itemStyle={{ color: "hsl(var(--foreground))", fontWeight: "600" }}
+                  labelStyle={{ color: "hsl(var(--muted-foreground))", marginBottom: "4px", fontSize: "12px" }}
                 />
-                <Bar dataKey="value" fill="var(--primary)" radius={[4, 4, 0, 0]} barSize={32} />
-                <Bar dataKey="target" fill="oklch(1 0 0 / 10%)" radius={[4, 4, 0, 0]} barSize={32} />
+                <Bar dataKey="value" fill="oklch(0.55 0.16 230)" radius={[4, 4, 0, 0]} barSize={32} />
+                <Bar dataKey="target" fill="hsl(var(--primary) / 0.15)" radius={[4, 4, 0, 0]} barSize={32} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
