@@ -371,6 +371,6 @@ export default function DrawingReviewPage() {
                     </div>
                 </TabsContent>
             </main>
-        </div>
+        </Tabs>
     )
 }
