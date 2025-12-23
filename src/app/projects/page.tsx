@@ -1,6 +1,6 @@
 "use client"
 
-import { Plus, Search, Filter, MoreHorizontal, Calendar, Users, AlertCircle, CheckCircle2, Clock } from "lucide-react"
+import { Plus, Search, Filter, MoreHorizontal, Calendar, Users, AlertCircle, CheckCircle2, Clock, ArrowUpRight, TrendingUp, MoreVertical } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -13,6 +13,17 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
 
 const projects = [
     {
@@ -62,19 +73,61 @@ export default function ProjectsPage() {
         <div className="p-8 space-y-8">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">项目管理</h1>
-                    <p className="text-muted-foreground mt-1">管理并监控所有 NPI 项目的生命周期与 WBS 进度</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">项目台账</h1>
+                    <p className="text-muted-foreground mt-1">NPI 研发项目全生命周期状态追踪与 WBS 进度管理</p>
                 </div>
-                <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    创建新项目
-                </Button>
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            创建新项目
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[525px] bg-white">
+                        <DialogHeader>
+                            <DialogTitle>创建 NPI 研发项目</DialogTitle>
+                            <DialogDescription>
+                                输入项目基本信息以初始化 NPI 协同流程。
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-6 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="name" className="text-right font-bold">项目名称</Label>
+                                <Input id="name" placeholder="例如：新款磁体单元 Gen4" className="col-span-3" />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="code" className="text-right font-bold">项目编号</Label>
+                                <Input id="code" placeholder="NPI-2026-XXX" className="col-span-3" />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="owner" className="text-right font-bold">负责人</Label>
+                                <Input id="owner" placeholder="主负责人姓名" className="col-span-3" />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="deadline" className="text-right font-bold">截止日期</Label>
+                                <Input id="deadline" type="date" className="col-span-3" />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button
+                                type="submit"
+                                onClick={() => {
+                                    toast.success("项目创建成功", {
+                                        description: "新一代磁声传感单元 (Gen4) 已加入系统台账。",
+                                    });
+                                }}
+                            >
+                                立即创建
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             <div className="flex items-center gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="检索项目代号、名称或负责人..." className="pl-9 bg-muted/30 border-border/50" />
+                    <Input placeholder="检索项目代号、名称 or 负责人..." className="pl-9 bg-muted/30 border-border/50" />
                 </div>
                 <Button variant="outline" className="gap-2 border-border/50">
                     <Filter className="h-4 w-4" />
