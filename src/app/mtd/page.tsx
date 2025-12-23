@@ -11,13 +11,14 @@ import {
     Printer,
     ChevronRight,
     Download,
-    AlertCircle
+    AlertCircle,
+    LayoutDashboard
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Input } from "@/components/ui/input"
 import {
     Table,
     TableBody,
@@ -26,6 +27,7 @@ import {
     TableHeader,
     TableRow
 } from "@/components/ui/table"
+import { toast } from "sonner"
 
 export default function MTDPage() {
     return (
@@ -33,7 +35,7 @@ export default function MTDPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">MTD 检测执行</h1>
-                    <p className="text-muted-foreground mt-1">生产现场检测任务领取、实时数据录入与自动化报告生成</p>
+                    <p className="text-muted-foreground mt-1">精密测量任务分派、现场检测数据采集与 AI 辅助判定</p>
                 </div>
                 <div className="flex gap-3">
                     <Button variant="outline" className="gap-2">
@@ -43,6 +45,14 @@ export default function MTDPage() {
                     <Button className="gap-2">
                         <Scan className="h-4 w-4" />
                         扫码领取任务
+                    </Button>
+                    <Button className="gap-2" onClick={() => toast.promise(new Promise((r) => setTimeout(r, 1500)), {
+                        loading: '正在生成报告...',
+                        success: '检测报告已导出至下载目录',
+                        error: '导出失败',
+                    })}>
+                        <FileText className="h-4 w-4" />
+                        导出检测报告
                     </Button>
                 </div>
             </div>

@@ -10,12 +10,28 @@ import {
     Plus,
     ArrowRight,
     TrendingUp,
-    FlaskConical
+    FlaskConical,
+    CheckCircle,
+    Clock,
+    XCircle,
+    MoreHorizontal
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { toast } from "sonner"
 import {
     Table,
     TableBody,
@@ -30,15 +46,40 @@ export default function DFMPage() {
         <div className="p-8 space-y-8 bg-background">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">DFM 策划</h1>
-                    <p className="text-muted-foreground mt-1">工艺方案制定、风险评估与制造验证管理</p>
+                    <h1 className="text-3xl font-bold tracking-tight text-foreground">DFM 策划</h1>
+                    <p className="text-muted-foreground mt-1">面向制造的设计同步、PFMEA 风险识别与打样验证流程</p>
                 </div>
                 <div className="flex gap-3">
-                    <Button variant="outline" className="gap-2">导出 DFM 报告</Button>
-                    <Button className="gap-2">
-                        <Plus className="h-4 w-4" />
-                        新建工艺策划
-                    </Button>
+                    <Button variant="outline" onClick={() => toast.info("报告上传功能已就绪", { description: "请选择 DFX 规则校验结果文件。" })}>上传 DFM 报告</Button>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button className="gap-2">
+                                <Plus className="h-4 w-4" />
+                                发起评审
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[500px] bg-white">
+                            <DialogHeader>
+                                <DialogTitle>发起 DFM 专家评审</DialogTitle>
+                                <DialogDescription>
+                                    选择参与评审的跨部门专家，并设定评审截止时间。
+                                </DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-6 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="reviewers" className="text-right font-bold">评审专家</Label>
+                                    <Input id="reviewers" placeholder="例如：工艺部、模具部、质量部" className="col-span-3" />
+                                </div>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label htmlFor="review-deadline" className="text-right font-bold">截止日期</Label>
+                                    <Input id="review-deadline" type="date" className="col-span-3" />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={() => toast.success("评审已发起", { description: "通知已发送至所选专家，评审任务已同步至工作流。" })}>确认发起</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
                 </div>
             </div>
 

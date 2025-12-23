@@ -32,6 +32,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const stats = [
@@ -96,19 +97,14 @@ export default function DashboardPage() {
       {/* Header Section */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">管理看板</h1>
-          <p className="text-muted-foreground mt-1">
-            欢迎回来，张工。当前共有 <span className="text-foreground font-medium">24</span> 个在研项目，其中 <span className="text-rose-500 font-medium">3</span> 项存在风险。
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">管理看板</h1>
+          <p className="text-muted-foreground mt-1">NPI 项目集关键指标、阶段达成率与异常风险全景视图</p>
         </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="gap-2">
-            <History className="h-4 w-4" />
-            查看历史
-          </Button>
-          <Button className="gap-2 shadow-lg shadow-primary/20">
-            <Plus className="h-4 w-4" />
-            新建项目
+        <div className="flex items-center gap-3">
+          <Button variant="outline" onClick={() => toast.info("数据同步中...", { description: "正在从各从系统拉取最新 NPI 进度数据。" })}>同步数据</Button>
+          <Button className="gap-2" onClick={() => toast.success("数据看板已导出", { description: "PDF 格式的看板报告已准备就绪。" })}>
+            <Download className="h-4 w-4" />
+            导出报告
           </Button>
         </div>
       </div>

@@ -26,6 +26,17 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
 
 export default function QPlanPage() {
     return (
@@ -35,10 +46,35 @@ export default function QPlanPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">Q-Plan 管理</h1>
                     <p className="text-muted-foreground mt-1">质量检验计划、抽样标准与可靠性测试方案定义</p>
                 </div>
-                <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    制定质量计划
-                </Button>
+                <Dialog>
+                    <DialogTrigger asChild>
+                        <Button className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            制定质量计划
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[500px] bg-white">
+                        <DialogHeader>
+                            <DialogTitle>制定 NPI 质量保证计划</DialogTitle>
+                            <DialogDescription>
+                                导入 Control Plan (CP) 模板或手动定义关键检验项。
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid gap-6 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="plan-type" className="text-right font-bold">计划类型</Label>
+                                <Input id="plan-type" placeholder="例如：IQC 阶段、Process 阶段" className="col-span-3" />
+                            </div>
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label htmlFor="product-model" className="text-right font-bold">对接机型</Label>
+                                <Input id="product-model" placeholder="选择关联的产品型号" className="col-span-3" />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button onClick={() => toast.success("质量计划已创建", { description: "检验清单已同步至 MTD 执行端。" })}>立即保存</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             <div className="flex gap-4">
