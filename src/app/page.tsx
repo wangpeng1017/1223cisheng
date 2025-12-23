@@ -180,7 +180,7 @@ export default function DashboardPage() {
                   labelStyle={{ color: "hsl(var(--muted-foreground))", marginBottom: "4px", fontSize: "12px" }}
                 />
                 <Bar dataKey="value" fill="oklch(0.55 0.16 230)" radius={[4, 4, 0, 0]} barSize={32} />
-                <Bar dataKey="target" fill="hsl(var(--primary) / 0.15)" radius={[4, 4, 0, 0]} barSize={32} />
+                <Bar dataKey="target" fill="oklch(0.92 0.01 240)" radius={[4, 4, 0, 0]} barSize={32} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
