@@ -42,9 +42,9 @@ export default function QPlanPage() {
             </div>
 
             <div className="flex gap-4">
-                <div className="relative flex-1">
+                <div className="relative flex-1 shadow-sm">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="检索检验标准或测试项..." className="pl-9 bg-muted/20 border-border" />
+                    <Input placeholder="检索检验标准或测试项..." className="pl-9 bg-white border-border focus:ring-1 focus:ring-primary" />
                 </div>
                 <Button variant="outline" className="gap-2">
                     <Filter className="h-4 w-4" />
@@ -83,13 +83,13 @@ export default function QPlanPage() {
                         </CardHeader>
                         <Table>
                             <TableHeader>
-                                <TableRow className="hover:bg-transparent">
-                                    <TableHead>物料类别</TableHead>
-                                    <TableHead>检验项目</TableHead>
-                                    <TableHead>判定指标 (U/L Limit)</TableHead>
-                                    <TableHead>检验工具/设备</TableHead>
-                                    <TableHead>抽样水平</TableHead>
-                                    <TableHead className="text-right">操作</TableHead>
+                                <TableRow className="bg-slate-50 border-b border-border">
+                                    <TableHead className="font-bold text-slate-800">物料类别</TableHead>
+                                    <TableHead className="font-bold text-slate-800">检验项目</TableHead>
+                                    <TableHead className="font-bold text-slate-800">判定指标 (U/L Limit)</TableHead>
+                                    <TableHead className="font-bold text-slate-800">检验工具/设备</TableHead>
+                                    <TableHead className="font-bold text-slate-800">抽样水平</TableHead>
+                                    <TableHead className="text-right font-bold text-slate-800">操作</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -99,16 +99,16 @@ export default function QPlanPage() {
                                     { cat: "PCB 板", item: "阻抗匹配", limit: "4.0 ±0.2 Ω", tool: "数字电桥", sample: "100% 自动测试" },
                                     { cat: "包装件", item: "防静电等级", limit: "10^6 - 10^9 Ω", tool: "表面电阻测试仪", sample: "Skip Lot" },
                                 ].map((row, i) => (
-                                    <TableRow key={i} className="group border-border/30">
-                                        <TableCell className="font-medium text-sm">{row.cat}</TableCell>
-                                        <TableCell className="text-sm">{row.item}</TableCell>
-                                        <TableCell className="font-mono text-xs text-muted-foreground">{row.limit}</TableCell>
-                                        <TableCell className="text-sm">{row.tool}</TableCell>
+                                    <TableRow key={i} className="group border-border hover:bg-slate-50/50 transition-colors">
+                                        <TableCell className="font-bold text-sm text-slate-900">{row.cat}</TableCell>
+                                        <TableCell className="text-sm font-medium text-slate-700">{row.item}</TableCell>
+                                        <TableCell className="font-mono text-xs text-slate-500">{row.limit}</TableCell>
+                                        <TableCell className="text-sm font-medium text-slate-700">{row.tool}</TableCell>
                                         <TableCell>
-                                            <Badge variant="outline" className="text-[10px] font-normal">{row.sample}</Badge>
+                                            <Badge className="text-[10px] font-bold bg-slate-100 text-slate-700 border-none">{row.sample}</Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm" className="text-primary hover:text-primary/80 opacity-0 group-hover:opacity-100 transition-opacity">编辑</Button>
+                                            <Button variant="ghost" size="sm" className="text-primary font-bold hover:text-primary/80 opacity-0 group-hover:opacity-100 transition-opacity">编辑</Button>
                                         </TableCell>
                                     </TableRow>
                                 ))}
