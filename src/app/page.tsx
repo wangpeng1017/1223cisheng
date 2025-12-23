@@ -26,7 +26,8 @@ import {
   MoreVertical,
   Activity,
   Layers,
-  History
+  History,
+  Download
 } from "lucide-react"
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
