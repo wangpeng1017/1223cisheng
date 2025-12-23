@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 export function AppNavbar() {
     return (
-        <header className="sticky top-0 z-30 flex h-16 w-full items-center gap-4 border-b border-border/50 bg-background/60 px-6 backdrop-blur-xl">
+        <header className="sticky top-0 z-30 flex h-16 w-full items-center gap-4 border-b border-border bg-white/95 px-6 backdrop-blur-md">
             <SidebarTrigger className="-ml-1" />
             <div className="flex flex-1 items-center gap-4 md:gap-8">
                 <form className="ml-auto flex-1 sm:flex-initial">

@@ -74,13 +74,13 @@ const data = {
       title: "平台能力",
       items: [
         {
-          title: "AI 智能体",
-          url: "/ai-agent",
+          title: "AI 智能评审",
+          url: "/drawing-review",
           icon: Database,
         },
         {
-          title: "数据中心",
-          url: "/data-center",
+          title: "基础数据",
+          url: "/data",
           icon: BarChart3,
         },
       ],
@@ -102,8 +102,8 @@ const data = {
 
 export function AppSidebar() {
   return (
-    <Sidebar variant="inset" className="border-r border-border/50 bg-sidebar/50 backdrop-blur-xl">
-      <SidebarHeader className="h-16 flex items-center px-6 border-b border-border/50">
+    <Sidebar variant="inset" className="border-r border-border bg-sidebar shadow-sm">
+      <SidebarHeader className="h-16 flex items-center px-6 border-b border-border">
         <div className="flex items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Cpu className="h-5 w-5" />
@@ -117,7 +117,7 @@ export function AppSidebar() {
       <SidebarContent>
         {data.navMain.map((group) => (
           <SidebarGroup key={group.title}>
-            <SidebarGroupLabel className="px-6 text-xs font-medium text-muted-foreground/70 uppercase pt-4 pb-2">
+            <SidebarGroupLabel className="px-6 text-xs font-semibold text-muted-foreground/60 uppercase pt-6 pb-2">
               {group.title}
             </SidebarGroupLabel>
             <SidebarGroupContent>
@@ -137,19 +137,19 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarFooter className="p-4 border-t border-border/50">
-         <SidebarMenu>
-            {data.secondary.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton asChild tooltip={item.title} className="px-6 py-4 hover:bg-accent/50">
-                    <a href={item.url} className="flex items-center gap-3">
-                    <item.icon className="h-5 w-5 text-muted-foreground" />
-                    <span className="font-medium">{item.title}</span>
-                    </a>
-                </SidebarMenuButton>
-                </SidebarMenuItem>
-            ))}
-         </SidebarMenu>
+      <SidebarFooter className="p-4 border-t border-border">
+        <SidebarMenu>
+          {data.secondary.map((item) => (
+            <SidebarMenuItem key={item.title}>
+              <SidebarMenuButton asChild tooltip={item.title} className="px-6 py-4 hover:bg-accent/50">
+                <a href={item.url} className="flex items-center gap-3">
+                  <item.icon className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium">{item.title}</span>
+                </a>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          ))}
+        </SidebarMenu>
       </SidebarFooter>
     </Sidebar>
   )
