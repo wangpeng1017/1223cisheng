@@ -13,7 +13,7 @@ import {
   Cell,
   LineChart,
   Line,
-  AreaChart, area,
+  AreaChart,
   Area
 } from "recharts"
 import {
