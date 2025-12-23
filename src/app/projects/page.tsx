@@ -13,12 +13,6 @@ import {
     TableRow,
 } from "@/components/ui/table"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@radix-ui/react-dropdown-menu"
 
 const projects = [
     {
@@ -137,7 +131,7 @@ export default function ProjectsPage() {
                                         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
                                             <div
                                                 className={`h-full rounded-full transition-all duration-500 ${project.status === "延期" ? "bg-rose-500" :
-                                                        project.status === "预警" ? "bg-amber-500" : "bg-primary"
+                                                    project.status === "预警" ? "bg-amber-500" : "bg-primary"
                                                     }`}
                                                 style={{ width: `${project.progress}%` }}
                                             />
@@ -154,7 +148,7 @@ export default function ProjectsPage() {
                                             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                                         )}
                                         <span className={`text-xs ${project.risk === "高" ? "text-rose-500" :
-                                                project.risk === "中" ? "text-amber-500" : "text-emerald-500"
+                                            project.risk === "中" ? "text-amber-500" : "text-emerald-500"
                                             }`}>
                                             {project.risk}风险
                                         </span>
