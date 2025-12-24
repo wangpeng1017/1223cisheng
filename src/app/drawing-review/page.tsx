@@ -87,7 +87,7 @@ export default function DrawingReviewPage() {
     }
 
     return (
-        <div className="flex flex-col h-screen bg-slate-50/50">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-screen bg-slate-50/50">
             {/* Toolbar */}
             <div className="h-16 border-b bg-white px-6 flex items-center justify-between shadow-sm flex-shrink-0">
                 <div className="flex items-center gap-4">
@@ -100,13 +100,13 @@ export default function DrawingReviewPage() {
                     </div>
                 </div>
 
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="w-[400px]">
+                <div className="w-[400px]">
                     <TabsList className="grid w-full grid-cols-3 bg-slate-100/50 p-1">
                         <TabsTrigger value="ledger" className="text-xs font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">评审台账</TabsTrigger>
                         <TabsTrigger value="review" className="text-xs font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">图纸校审</TabsTrigger>
                         <TabsTrigger value="report" className="text-xs font-bold data-[state=active]:bg-white data-[state=active]:shadow-sm">评审报告</TabsTrigger>
                     </TabsList>
-                </Tabs>
+                </div>
 
                 <div className="flex items-center gap-3">
                     <Button variant="outline" size="sm" className="h-8 gap-2 border-slate-200">
