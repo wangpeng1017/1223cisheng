@@ -1,5 +1,7 @@
 "use client"
 
+import * as React from "react"
+
 import {
     ShieldCheck,
     Rss,
@@ -12,7 +14,8 @@ import {
     ChevronRight,
     Download,
     AlertCircle,
-    LayoutDashboard
+    LayoutDashboard,
+    Magnet
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -28,8 +31,81 @@ import {
     TableRow
 } from "@/components/ui/table"
 import { toast } from "sonner"
+import { SopWizard } from "@/components/mtd/sop-wizard"
+import { MagneticInputCard } from "@/components/mtd/magnetic-input-card"
 
 export default function MTDPage() {
+    // J510 Mock Data Support
+    const [activeProject, setActiveProject] = React.useState("J510")
+    const [measurements, setMeasurements] = React.useState([
+        { id: "S1", item: "中心磁通 (Center Gauss)", std: "435.0 ±15.0", actual: "442.2", result: "OK", type: "standard" },
+        { id: "S1", item: "边际温差 (Ref Temp)", std: "25.0 ±1.0", actual: "25.1", result: "OK", type: "standard" },
+    ])
+
+    // Magnetic Special Characteristics State
+    const [magnetData, setMagnetData] = React.useState<{ values: Record<string, number>, status: "OK" | "NG" }>({
+        values: {},
+        status: "OK"
+    })
+
+    const j510SopSteps = [
+        {
+            id: 1,
+            title: "Reset Operation",
+            description: "将夹具平放在线圈测试平台上后，按 'Reset' 键。",
+            actionLabel: "完成归零"
+        },
+        {
+            id: 2,
+            title: "Zero Calibration",
+            description: "等待 2 秒再按 'Zero' 键清零，准备测试。",
+            warning: "确保周围 2.5 米内无移动金属物体。",
+            actionLabel: "校准确认"
+        },
+        {
+            id: 3,
+            title: "Test Execution",
+            description: "稳定地把治具从亥姆霍兹线圈中抽出，确保逃逸距离 > 600mm，再按 'Test' 键获取数据。",
+            warning: "抽出速度需保持匀速。",
+            actionLabel: "完成测试"
+        }
+    ]
+
+    const j510MagneticSpecs = [
+        { label: "Magnetic Angle (θz)", target: 30.96, tolerance: 3.00, unit: "deg" },
+        { label: "Magnetic Moment", target: 9.72, tolerance: 0.68, unit: "uWb*cm" }
+    ]
+
+    const handleActualChange = (index: number, value: string) => {
+        const newMeasurements = [...measurements]
+        newMeasurements[index].actual = value
+
+        // Basic mock logic for result
+        const std = newMeasurements[index].std
+        if (std.includes("±")) {
+            const [nominallStr, rangeStr] = std.split("±")
+            const nominal = parseFloat(nominallStr)
+            const range = parseFloat(rangeStr)
+            const actual = parseFloat(value)
+            if (!isNaN(actual)) {
+                if (actual >= (nominal - range) && actual <= (nominal + range)) {
+                    newMeasurements[index].result = "OK"
+                } else {
+                    newMeasurements[index].result = "NG"
+                }
+            }
+        }
+        setMeasurements(newMeasurements)
+    }
+
+    const handleSubmit = () => {
+        toast.promise(new Promise((r) => setTimeout(r, 1500)), {
+            loading: '正在提交检测数据并生成 CPK 报告...',
+            success: '数据已同步至 Q-Plan，任务状态更新为“已完成”',
+            error: '提交失败，请检查量具连接状态',
+        })
+    }
+
     return (
         <div className="p-8 space-y-8 bg-background">
             <div className="flex items-center justify-between">
@@ -85,21 +161,30 @@ export default function MTDPage() {
                         </CardContent>
                     </Card>
 
-                    <Card className="bg-card">
-                        <CardHeader className="pb-3 px-4 flex flex-row items-center justify-between">
-                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-primary" />
-                                检测 SOP
-                            </CardTitle>
-                            <Maximize2 className="h-3 w-3 text-muted-foreground cursor-pointer" />
-                        </CardHeader>
-                        <CardContent className="px-4 pb-4">
-                            <div className="aspect-square rounded-lg bg-muted flex flex-col items-center justify-center text-center p-4 border border-dashed border-border">
-                                <div className="w-full h-full bg-[url('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-40 rounded mb-2" />
-                                <span className="text-[11px] text-muted-foreground leading-tight">请按照示意图进行测量：探头垂直于磁体中心表面 0.5mm 处停止。</span>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    {activeProject === "J510" && (
+                        <SopWizard
+                            steps={j510SopSteps}
+                            onComplete={() => toast.success("SOP 执行完毕，已解锁磁学输入面板")}
+                        />
+                    )}
+
+                    {activeProject !== "J510" && (
+                        <Card className="bg-card">
+                            <CardHeader className="pb-3 px-4 flex flex-row items-center justify-between">
+                                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-primary" />
+                                    检测 SOP
+                                </CardTitle>
+                                <Maximize2 className="h-3 w-3 text-muted-foreground cursor-pointer" />
+                            </CardHeader>
+                            <CardContent className="px-4 pb-4">
+                                <div className="aspect-square rounded-lg bg-muted flex flex-col items-center justify-center text-center p-4 border border-dashed border-border">
+                                    <div className="w-full h-full bg-[url('https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?q=80&w=2070&auto=format&fit=crop')] bg-cover bg-center opacity-40 rounded mb-2" />
+                                    <span className="text-[11px] text-muted-foreground leading-tight">请按照示意图进行测量：探头垂直于磁体中心表面 0.5mm 处停止。</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
                 </div>
 
                 {/* Center Panel: Data Entry */}
@@ -118,7 +203,15 @@ export default function MTDPage() {
                                 <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">操作员: 张工人</span>
                             </div>
                         </CardHeader>
-                        <CardContent className="pt-6">
+                        <CardContent className="pt-6 space-y-6">
+                            {/* Special Characteristic for J510 */}
+                            {activeProject === "J510" && (
+                                <MagneticInputCard
+                                    specs={j510MagneticSpecs}
+                                    onChange={(vals, stat) => setMagnetData({ values: vals, status: stat })}
+                                />
+                            )}
+
                             <Table>
                                 <TableHeader>
                                     <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
@@ -131,13 +224,7 @@ export default function MTDPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {[
-                                        { id: "S1", item: "中心磁通 (Center Gauss)", std: "435.0 ±15.0", actual: "442.2", result: "OK" },
-                                        { id: "S1", item: "边际温差 (Ref Temp)", std: "25.0 ±1.0", actual: "25.1", result: "OK" },
-                                        { id: "S2", item: "中心磁通 (Center Gauss)", std: "435.0 ±15.0", actual: "431.5", result: "OK" },
-                                        { id: "S2", item: "边际温差 (Ref Temp)", std: "25.0 ±1.0", actual: "24.9", result: "OK" },
-                                        { id: "S3", item: "中心磁通 (Center Gauss)", std: "435.0 ±15.0", actual: "428.0", result: "OK" },
-                                    ].map((row, i) => (
+                                    {measurements.map((row, i) => (
                                         <TableRow key={i} className="hover:bg-slate-50/50 border-border group transition-colors">
                                             <TableCell className="font-mono text-xs text-slate-500 font-medium">{row.id}</TableCell>
                                             <TableCell className="text-sm font-semibold text-slate-700">{row.item}</TableCell>
@@ -145,12 +232,14 @@ export default function MTDPage() {
                                             <TableCell>
                                                 <input
                                                     type="text"
-                                                    defaultValue={row.actual}
-                                                    className="w-full h-8 px-2 text-sm bg-white border border-border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none shadow-sm"
+                                                    value={row.actual}
+                                                    onChange={(e) => handleActualChange(i, e.target.value)}
+                                                    className={`w-full h-8 px-2 text-sm bg-white border rounded focus:ring-1 focus:ring-primary focus:border-primary outline-none shadow-sm ${row.result === 'NG' ? 'border-rose-500 text-rose-600' : 'border-border'
+                                                        }`}
                                                 />
                                             </TableCell>
                                             <TableCell>
-                                                <Badge className={`text-[10px] bg-emerald-500 text-white`}>
+                                                <Badge className={`text-[10px] ${row.result === 'OK' ? 'bg-emerald-500' : 'bg-rose-500'} text-white`}>
                                                     {row.result}
                                                 </Badge>
                                             </TableCell>
@@ -162,8 +251,8 @@ export default function MTDPage() {
                                 </TableBody>
                             </Table>
                             <div className="flex justify-end gap-3 mt-6">
-                                <Button variant="outline">异常挂起</Button>
-                                <Button className="bg-primary hover:bg-primary/90">
+                                <Button variant="outline" onClick={() => toast.warning("任务已挂起", { description: "请填写异常原因并通知领班。" })}>异常挂起</Button>
+                                <Button className="bg-primary hover:bg-primary/90" onClick={handleSubmit}>
                                     <ShieldCheck className="mr-2 h-4 w-4" />
                                     提交数据并生成报告
                                 </Button>
@@ -186,10 +275,10 @@ export default function MTDPage() {
                                 <AlertCircle className="h-4 w-4 text-rose-500" />
                             </CardHeader>
                             <CardContent className="grid grid-cols-2 gap-2">
-                                <Button variant="outline" className="text-[10px] border-rose-100 text-rose-600 bg-rose-50/50">量具故障</Button>
-                                <Button variant="outline" className="text-[10px] border-rose-100 text-rose-600 bg-rose-50/50">物料异常</Button>
-                                <Button variant="outline" className="text-[10px] border-rose-100 text-rose-600 bg-rose-50/50">图纸存疑</Button>
-                                <Button variant="outline" className="text-[10px] border-rose-100 text-rose-600 bg-rose-50/50">操作求助</Button>
+                                <Button variant="outline" className="text-[10px] border-rose-100 text-rose-600 bg-rose-50/50" onClick={() => toast.error("Andon 触发：量具故障", { description: "正在通知设备维修组..." })}>量具故障</Button>
+                                <Button variant="outline" className="text-[10px] border-rose-100 text-rose-600 bg-rose-50/50" onClick={() => toast.error("Andon 触发：物料异常", { description: "正在通知品质部 (IQC)..." })}>物料异常</Button>
+                                <Button variant="outline" className="text-[10px] border-rose-100 text-rose-600 bg-rose-50/50" onClick={() => toast.error("Andon 触发：图纸存疑", { description: "正在通知研发工程师项目组..." })}>图纸存疑</Button>
+                                <Button variant="outline" className="text-[10px] border-rose-100 text-rose-600 bg-rose-50/50" onClick={() => toast.error("Andon 触发：操作求助", { description: "正在呼叫线长/组长..." })}>操作求助</Button>
                             </CardContent>
                         </Card>
                     </div>

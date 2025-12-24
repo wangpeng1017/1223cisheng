@@ -125,10 +125,32 @@ const projects = [
 export default function ProjectsPage() {
     const [expandedRows, setExpandedRows] = React.useState<string[]>([])
 
+    const [searchTerm, setSearchTerm] = React.useState("")
+    const [projectList, setProjectList] = React.useState(projects)
+    const [statusFilter, setStatusFilter] = React.useState("all")
+
+    const filteredProjects = projectList.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.manager.toLowerCase().includes(searchTerm.toLowerCase())
+
+        const matchesStatus = statusFilter === "all" ||
+            (statusFilter === "active" && p.status === "进行中") ||
+            (statusFilter === "warning" && p.status === "预警") ||
+            (statusFilter === "overdue" && p.status === "延期") ||
+            (statusFilter === "done" && p.status === "已完成")
+
+        return matchesSearch && matchesStatus
+    })
+
     const toggleRow = (id: string) => {
-        setExpandedRows(prev =>
-            prev.includes(id) ? prev.filter(rowId => rowId !== id) : [...prev, id]
-        )
+        setExpandedRows(prev => {
+            const isExpanding = !prev.includes(id)
+            if (isExpanding) {
+                toast.info(`正在加载项目 ${id} 的子任务详情...`)
+            }
+            return isExpanding ? [...prev, id] : prev.filter(rowId => rowId !== id)
+        })
     }
 
     const getStatusStyles = (status: string) => {
@@ -222,9 +244,14 @@ export default function ProjectsPage() {
             <div className="flex items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="检索项目代号、名称、负责人..." className="pl-9 bg-slate-50 border-none focus-visible:ring-1 focus-visible:ring-primary" />
+                    <Input
+                        placeholder="检索项目代号、名称、负责人..."
+                        className="pl-9 bg-slate-50 border-none focus-visible:ring-1 focus-visible:ring-primary"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
-                <Select defaultValue="all">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
                     <SelectTrigger className="w-[140px] bg-slate-50 border-none">
                         <SelectValue placeholder="项目状态" />
                     </SelectTrigger>
@@ -257,7 +284,7 @@ export default function ProjectsPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {projects.map((project) => (
+                        {filteredProjects.map((project) => (
                             <React.Fragment key={project.id}>
                                 <TableRow
                                     className={`border-slate-50 transition-colors group ${project.status === "延期" ? "bg-rose-50/30 hover:bg-rose-50/50" :
@@ -353,6 +380,11 @@ export default function ProjectsPage() {
                                                     variant="ghost"
                                                     size="sm"
                                                     className="h-auto py-2 border border-dashed border-slate-200 text-slate-400 hover:text-primary hover:border-primary flex flex-col items-center justify-center gap-1"
+                                                    onClick={() => toast.promise(new Promise(r => setTimeout(r, 800)), {
+                                                        loading: "加载工单模版...",
+                                                        success: "正在跳转至任务执行页",
+                                                        error: "无执行权限"
+                                                    })}
                                                 >
                                                     <Plus className="h-3 w-3" />
                                                     <span className="text-[10px]">添加子任务</span>
@@ -382,6 +414,6 @@ export default function ProjectsPage() {
                     </Button>
                 </div>
             </div>
-        </div>
+        </div >
     )
 }

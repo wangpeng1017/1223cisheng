@@ -1,5 +1,7 @@
 "use client"
 
+import * as React from "react"
+
 import {
     ShieldCheck,
     Settings,
@@ -39,6 +41,20 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 
 export default function QPlanPage() {
+    const [searchTerm, setSearchTerm] = React.useState("")
+    const [plans, setPlans] = React.useState([
+        { cat: "磁性组件", item: "表面磁通量", limit: "420 - 450 mT", tool: "特斯拉计", sample: "Level II (S-3)" },
+        { cat: "五金件", item: "关键孔径尺寸", limit: "Φ5.02 ±0.01mm", tool: "二次元投影仪", sample: "Level II" },
+        { cat: "PCB 板", item: "阻抗匹配", limit: "4.0 ±0.2 Ω", tool: "数字电桥", sample: "100% 自动测试" },
+        { cat: "包装件", item: "防静电等级", limit: "10^6 - 10^9 Ω", tool: "表面电阻测试仪", sample: "Skip Lot" },
+    ])
+
+    const filteredPlans = plans.filter(p =>
+        p.cat.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.tool.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+
     return (
         <div className="p-8 space-y-8 bg-background">
             <div className="flex items-center justify-between">
@@ -80,9 +96,14 @@ export default function QPlanPage() {
             <div className="flex gap-4">
                 <div className="relative flex-1 shadow-sm">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="检索检验标准或测试项..." className="pl-9 bg-white border-border focus:ring-1 focus:ring-primary" />
+                    <Input
+                        placeholder="检索检验标准或测试项..."
+                        className="pl-9 bg-white border-border focus:ring-1 focus:ring-primary"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" className="gap-2" onClick={() => toast.info("高级筛选功能正在开发中...")}>
                     <Filter className="h-4 w-4" />
                     筛选标准库
                 </Button>
@@ -129,12 +150,7 @@ export default function QPlanPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {[
-                                    { cat: "磁性组件", item: "表面磁通量", limit: "420 - 450 mT", tool: "特斯拉计", sample: "Level II (S-3)" },
-                                    { cat: "五金件", item: "关键孔径尺寸", limit: "Φ5.02 ±0.01mm", tool: "二次元投影仪", sample: "Level II" },
-                                    { cat: "PCB 板", item: "阻抗匹配", limit: "4.0 ±0.2 Ω", tool: "数字电桥", sample: "100% 自动测试" },
-                                    { cat: "包装件", item: "防静电等级", limit: "10^6 - 10^9 Ω", tool: "表面电阻测试仪", sample: "Skip Lot" },
-                                ].map((row, i) => (
+                                {filteredPlans.map((row, i) => (
                                     <TableRow key={i} className="group border-border hover:bg-slate-50/50 transition-colors">
                                         <TableCell className="font-bold text-sm text-slate-900">{row.cat}</TableCell>
                                         <TableCell className="text-sm font-medium text-slate-700">{row.item}</TableCell>
@@ -144,7 +160,14 @@ export default function QPlanPage() {
                                             <Badge className="text-[10px] font-bold bg-slate-100 text-slate-700 border-none">{row.sample}</Badge>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="sm" className="text-primary font-bold hover:text-primary/80 opacity-0 group-hover:opacity-100 transition-opacity">编辑</Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="text-primary font-bold hover:text-primary/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={() => toast.info(`编辑条目：${row.item}`)}
+                                            >
+                                                编辑
+                                            </Button>
                                         </TableCell>
                                     </TableRow>
                                 ))}
@@ -186,7 +209,7 @@ export default function QPlanPage() {
                     <Card className="flex flex-col items-center justify-center h-80 bg-muted/10 border-dashed">
                         <Microscope className="h-12 w-12 text-muted-foreground opacity-30 mb-4" />
                         <p className="text-sm text-muted-foreground">测量方案策划面板：请先从 [产品主数据] 导入 3D 测量点位分布图</p>
-                        <Button variant="link" className="text-xs mt-2">浏览图纸库</Button>
+                        <Button variant="link" className="text-xs mt-2" onClick={() => toast.info("正在调齐 3D 图纸库...")}>浏览图纸库</Button>
                     </Card>
                 </TabsContent>
             </Tabs>

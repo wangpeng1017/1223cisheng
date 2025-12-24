@@ -1,5 +1,7 @@
 "use client"
 
+import * as React from "react"
+
 import {
     User,
     Calendar,
@@ -11,15 +13,46 @@ import {
     Activity,
     LogOut,
     Edit3,
-    Bookmark
+    Bookmark,
+    Search,
+    Plus,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
 
 export default function UserCenterPage() {
+    const [notifSearch, setNotifSearch] = React.useState("")
+    const [notifications, setNotifications] = React.useState([
+        { type: "审批", content: "项目 NPI-2025-001 已通过 MTD 检测，请签核 Q-Plan。", time: "10 分钟前", status: "unread", color: "text-blue-500 bg-blue-50" },
+        { type: "预警", content: "您的“AI 降噪模组”项目进度出现延迟预警。", time: "2 小时前", status: "unread", color: "text-rose-500 bg-rose-50" },
+        { type: "任务", content: "有一场关于“Gen3 磁路”的技术评审会议邀约。", time: "昨天", status: "read", color: "text-amber-500 bg-amber-50" },
+    ])
+
+    const filteredNotifs = notifications.filter(n =>
+        n.content.toLowerCase().includes(notifSearch.toLowerCase()) ||
+        n.type.toLowerCase().includes(notifSearch.toLowerCase())
+    )
+
+    const clearAllRead = () => {
+        setNotifications(notifications.filter(n => n.status === "unread"))
+        toast.success("已清理所有已读通知")
+    }
+
     return (
         <div className="p-8 max-w-6xl mx-auto space-y-8 bg-background">
             {/* User Header */}
@@ -48,11 +81,32 @@ export default function UserCenterPage() {
                     </div>
                 </div>
                 <div className="flex gap-3 z-10">
-                    <Button variant="outline" className="gap-2 border-border/50">
-                        <Edit3 className="h-4 w-4" /> 编辑资料
-                    </Button>
-                    <Button variant="ghost" className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 border border-transparent">
-                        <LogOut className="h-4 w-4" /> 退出登录
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="gap-2 border-border/50">
+                                <Edit3 className="h-4 w-4" />
+                                编辑资料
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="bg-white">
+                            <DialogHeader>
+                                <DialogTitle>编辑个人资料</DialogTitle>
+                                <DialogDescription>修改您的头像、职位信息或联系方式。</DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-right">职位</Label>
+                                    <Input className="col-span-3" defaultValue="高级研发工程师 / NPI 组长" />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={() => toast.success("个人资料已更新")}>保存更改</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                    <Button variant="ghost" className="text-rose-500 hover:text-rose-600 hover:bg-rose-50 border border-transparent" onClick={() => toast.warning("确定要登出系统吗？")}>
+                        <LogOut className="h-4 w-4" />
+                        退出登录
                     </Button>
                 </div>
                 {/* Abstract Background Shape */}
@@ -129,22 +183,37 @@ export default function UserCenterPage() {
 
                         <TabsContent value="notifications">
                             <div className="space-y-4">
-                                {[
-                                    { type: "系统通知", content: "您的密码已在 2 小时前登录另一台受信任设备。", date: "16:20", urgent: false },
-                                    { type: "任务提醒", content: "郭经理将您添加为 [车规级磁路平台] 的项目成员。", date: "14:10", urgent: true },
-                                    { type: "评审推送", content: "图纸 DRW-2025-X1 有新的用户批注，请确认。", date: "09:30", urgent: true },
-                                ].map((n, i) => (
-                                    <div key={i} className={`p-4 rounded-xl border flex gap-4 ${n.urgent ? "bg-amber-500/5 border-amber-500/20" : "bg-card"}`}>
-                                        <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${n.urgent ? "bg-amber-100 text-amber-600" : "bg-muted text-muted-foreground"}`}>
+                                <div className="flex items-center gap-3 mb-6 bg-slate-50 p-2 rounded-lg">
+                                    <Search className="h-4 w-4 text-muted-foreground ml-2" />
+                                    <Input
+                                        placeholder="搜索通知内容..."
+                                        className="border-none bg-transparent focus-visible:ring-0 h-8 text-sm"
+                                        value={notifSearch}
+                                        onChange={(e) => setNotifSearch(e.target.value)}
+                                    />
+                                    <Button variant="ghost" size="sm" className="text-xs h-8" onClick={clearAllRead}>一键标为已读</Button>
+                                </div>
+                                {filteredNotifs.map((n, i) => (
+                                    <div key={i} className="flex items-start gap-4 p-4 rounded-xl border border-slate-100 hover:bg-slate-50 transition-colors group relative cursor-pointer"
+                                        onClick={() => {
+                                            const newNotifs = [...notifications]
+                                            newNotifs[notifications.indexOf(n)].status = "read"
+                                            setNotifications(newNotifs)
+                                        }}
+                                    >
+                                        <div className={`mt-1 p-2 rounded-lg ${n.color}`}>
                                             <Bell className="h-4 w-4" />
                                         </div>
-                                        <div className="flex-1 min-w-0">
+                                        <div className="flex-1">
                                             <div className="flex justify-between items-center mb-1">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{n.type}</span>
-                                                <span className="text-[10px] text-muted-foreground">{n.date}</span>
+                                                <Badge variant="outline" className="text-[10px] font-bold">{n.type}</Badge>
+                                                <span className="text-[10px] text-muted-foreground">{n.time}</span>
                                             </div>
-                                            <p className="text-sm font-medium">{n.content}</p>
+                                            <p className={`text-sm ${n.status === 'unread' ? 'font-bold text-slate-900' : 'text-slate-600'}`}>{n.content}</p>
                                         </div>
+                                        {n.status === 'unread' && (
+                                            <div className="absolute top-4 right-4 h-2 w-2 rounded-full bg-blue-500 ring-4 ring-white" />
+                                        )}
                                     </div>
                                 ))}
                             </div>

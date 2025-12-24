@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { toast } from "sonner"
 import {
     Table,
     TableBody,
@@ -33,7 +34,7 @@ export default function AdminPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">系统管理</h1>
                     <p className="text-muted-foreground mt-1">管理系统权限、查看操作日志与全局参数配置</p>
                 </div>
-                <Button className="gap-2">
+                <Button className="gap-2" onClick={() => toast.success("正在进入新增管理员流程...")}>
                     <UserPlus className="h-4 w-4" />
                     新增管理员
                 </Button>
@@ -71,7 +72,7 @@ export default function AdminPage() {
                                     <CardDescription className="text-xs pt-2">{r.desc}</CardDescription>
                                 </CardHeader>
                                 <CardContent className="pt-0">
-                                    <Button variant="link" className="p-0 h-auto text-[10px] text-primary">管理权限范围 <ChevronRight className="h-3 w-3" /></Button>
+                                    <Button variant="link" className="p-0 h-auto text-[10px] text-primary" onClick={() => toast.info(`正在查看 ${r.role} 的权限详情`)}>管理权限范围 <ChevronRight className="h-3 w-3" /></Button>
                                 </CardContent>
                             </Card>
                         ))}
@@ -152,14 +153,14 @@ export default function AdminPage() {
                                     <span className="text-sm font-medium">双重身份认证 (MFA)</span>
                                     <span className="text-xs text-muted-foreground">敏感操作前强制验证</span>
                                 </div>
-                                <Badge variant="outline">已关闭</Badge>
+                                <Badge variant="outline" className="cursor-pointer" onClick={() => toast.info("请先配置 MFA 认证服务器")}>已关闭</Badge>
                             </div>
                             <div className="flex items-center justify-between p-3 rounded-lg border">
                                 <div className="flex flex-col">
                                     <span className="text-sm font-medium">水印管理</span>
                                     <span className="text-xs text-muted-foreground">敏感图纸预览时强制显示工号水印</span>
                                 </div>
-                                <Badge>已开启</Badge>
+                                <Badge className="cursor-pointer" onClick={() => toast.success("水印设置已更新")}>已开启</Badge>
                             </div>
                         </CardContent>
                     </Card>

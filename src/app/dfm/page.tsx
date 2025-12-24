@@ -40,8 +40,21 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import * as React from "react"
 
 export default function DFMPage() {
+    const [risks, setRisks] = React.useState([
+        { op: "磁路装配", mode: "磁极方向装反", effect: "产品无输出，报废", measure: "夹具增加防呆防错设计", sod: "8 / 2 / 4 (64)", status: "已改进" },
+        { op: "点胶工序", mode: "溢胶、胶量不足", effect: "磁性组件松动, 异音", measure: "CCD 视觉检测仪自动判定", sod: "6 / 4 / 3 (72)", status: "追踪中" },
+    ])
+
+    const toggleRiskStatus = (index: number) => {
+        const newRisks = [...risks]
+        newRisks[index].status = newRisks[index].status === "已改进" ? "追踪中" : "已改进"
+        setRisks(newRisks)
+        toast.info(`风险条目状态已更新为：${newRisks[index].status}`)
+    }
+
     return (
         <div className="p-8 space-y-8 bg-background">
             <div className="flex items-center justify-between">
@@ -169,11 +182,8 @@ export default function DFMPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {[
-                                { op: "磁路装配", mode: "磁极方向装反", effect: "产品无输出，报废", measure: "夹具增加防呆防错设计", sod: "8 / 2 / 4 (64)", status: "已改进" },
-                                { op: "点胶工序", mode: "溢胶、胶量不足", effect: "磁性组件松动, 异音", measure: "CCD 视觉检测仪自动判定", sod: "6 / 4 / 3 (72)", status: "追踪中" },
-                            ].map((r, i) => (
-                                <TableRow key={i}>
+                            {risks.map((r, i) => (
+                                <TableRow key={i} className="hover:bg-muted/30 transition-colors">
                                     <TableCell className="font-medium text-sm">{r.op}</TableCell>
                                     <TableCell className="text-sm">{r.mode}</TableCell>
                                     <TableCell className="text-xs text-muted-foreground">{r.effect}</TableCell>
@@ -182,7 +192,12 @@ export default function DFMPage() {
                                         <Badge variant="outline" className="font-mono text-amber-600 border-amber-500/20">{r.sod}</Badge>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge className={r.status === "已改进" ? "bg-emerald-500" : "bg-amber-500"}>{r.status}</Badge>
+                                        <Badge
+                                            className={`${r.status === "已改进" ? "bg-emerald-500" : "bg-amber-500"} cursor-pointer hover:opacity-80`}
+                                            onClick={() => toggleRiskStatus(i)}
+                                        >
+                                            {r.status}
+                                        </Badge>
                                     </TableCell>
                                 </TableRow>
                             ))}
@@ -209,7 +224,7 @@ export default function DFMPage() {
                                     <span className="text-sm font-medium">精密装配夹具 V1.2</span>
                                     <span className="text-[10px] text-muted-foreground">最后更新: 2025-12-22</span>
                                 </div>
-                                <Badge>设计完成</Badge>
+                                <Badge className="cursor-pointer" onClick={() => toast.info("Jig-Magnet-301.STL 设计锁定")}>设计完成</Badge>
                             </div>
                         </CardContent>
                     </Card>

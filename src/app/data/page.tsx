@@ -1,5 +1,7 @@
 "use client"
 
+import * as React from "react"
+
 import {
     Database,
     Layers,
@@ -25,8 +27,32 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
 
 export default function BaseDataPage() {
+    const [searchTerm, setSearchTerm] = React.useState("")
+    const [products, setProducts] = React.useState([
+        { id: "PROD-X1", name: "新款磁体单元 Gen3", cat: "磁性核心", spec: "NdFeB, 50x50, N52", status: "激活" },
+        { id: "PROD-L2", name: "L系列低频驱动器", cat: "声学模组", spec: "Titanium Diaphragm, 8ohm", status: "草稿" },
+        { id: "PROD-S1", name: "微型数字麦克风", cat: "传感器", spec: "MEMS, -42dB", status: "激活" },
+    ])
+
+    const filteredProducts = products.filter(p =>
+        p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.cat.toLowerCase().includes(searchTerm.toLowerCase())
+    )
+
     return (
         <div className="p-8 space-y-8 bg-background">
             <div className="flex items-center justify-between">
@@ -34,16 +60,50 @@ export default function BaseDataPage() {
                     <h1 className="text-3xl font-bold tracking-tight text-foreground">基础数据模块</h1>
                     <p className="text-muted-foreground mt-1">管理系统核心主数据、NPI 标准阶段与 AI 知识库</p>
                 </div>
-                <Button className="gap-2">
-                    <Download className="h-4 w-4" />
-                    导出全量数据
-                </Button>
+                <div className="flex gap-3">
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button className="gap-2 bg-primary">
+                                <Plus className="h-4 w-4" />
+                                新增产品
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="bg-white">
+                            <DialogHeader>
+                                <DialogTitle>录入产品主数据</DialogTitle>
+                                <DialogDescription>请完整填写产品的基础技术参数。</DialogDescription>
+                            </DialogHeader>
+                            <div className="grid gap-4 py-4">
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-right">名称</Label>
+                                    <Input className="col-span-3" placeholder="例如：新款磁体单元" />
+                                </div>
+                                <div className="grid grid-cols-4 items-center gap-4">
+                                    <Label className="text-right">类别</Label>
+                                    <Input className="col-span-3" placeholder="磁性核心 / 声学 / 传感器" />
+                                </div>
+                            </div>
+                            <DialogFooter>
+                                <Button onClick={() => toast.success("产品录入成功")}>提交保存</Button>
+                            </DialogFooter>
+                        </DialogContent>
+                    </Dialog>
+                    <Button variant="outline" className="gap-2" onClick={() => toast.info("正在导出全量数据...")}>
+                        <Download className="h-4 w-4" />
+                        导出
+                    </Button>
+                </div>
             </div>
 
             <div className="flex gap-4">
                 <div className="relative flex-1">
                     <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="搜索产品、知识条目或错误代码..." className="pl-9 bg-muted/20 border-border" />
+                    <Input
+                        placeholder="搜索产品、知识条目或错误代码..."
+                        className="pl-9 bg-muted/20 border-border"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
             </div>
 
@@ -81,12 +141,8 @@ export default function BaseDataPage() {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {[
-                                    { id: "PROD-X1", name: "新款磁体单元 Gen3", cat: "磁性核心", spec: "NdFeB, 50x50, N52", status: "激活" },
-                                    { id: "PROD-L2", name: "L系列低频驱动器", cat: "声学模组", spec: "Titanium Diaphragm, 8ohm", status: "草稿" },
-                                    { id: "PROD-S1", name: "微型数字麦克风", cat: "传感器", spec: "MEMS, -42dB", status: "激活" },
-                                ].map((p, i) => (
-                                    <TableRow key={i}>
+                                {filteredProducts.map((p, i) => (
+                                    <TableRow key={i} className="group">
                                         <TableCell className="font-mono text-xs">{p.id}</TableCell>
                                         <TableCell className="font-medium text-sm">{p.name}</TableCell>
                                         <TableCell>
@@ -100,7 +156,12 @@ export default function BaseDataPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                onClick={() => toast.info(`正在查看 ${p.name} 的详细履历`)}
+                                            >
                                                 <MoreHorizontal className="h-4 w-4" />
                                             </Button>
                                         </TableCell>
@@ -128,13 +189,22 @@ export default function BaseDataPage() {
                                         ))}
                                     </div>
                                 </CardHeader>
-                                <CardContent className="flex justify-between items-center text-[10px] text-muted-foreground">
+                                <CardContent
+                                    className="flex justify-between items-center text-[10px] text-muted-foreground"
+                                    onClick={() => toast.success(`已打开：${k.title}`)}
+                                >
                                     <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> 点击查阅详情</span>
                                     <span>引用 {k.views} 次</span>
                                 </CardContent>
                             </Card>
                         ))}
-                        <Card className="border-dashed flex flex-col items-center justify-center p-6 bg-muted/5 min-h-[160px]">
+                        <Card className="border-dashed flex flex-col items-center justify-center p-6 bg-muted/5 min-h-[160px] cursor-pointer hover:bg-muted/10 transition-colors"
+                            onClick={() => toast.promise(new Promise(r => setTimeout(r, 1000)), {
+                                loading: "AI 正在分析历史数据...",
+                                success: "成功提取 3 条新设计准则",
+                                error: "分析失败"
+                            })}
+                        >
                             <Lightbulb className="h-8 w-8 text-primary opacity-50 mb-2" />
                             <p className="text-xs text-muted-foreground">AI 智能提取新知识</p>
                             <Button variant="link" className="text-[10px] h-auto p-0 mt-2">从历史评审中提取</Button>

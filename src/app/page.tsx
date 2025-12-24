@@ -1,5 +1,7 @@
 "use client"
 
+import * as React from "react"
+
 import {
   BarChart,
   Bar,
@@ -93,6 +95,14 @@ const urgentTasks = [
 ]
 
 export default function DashboardPage() {
+  const [urgentSearch, setUrgentSearch] = React.useState("")
+  const [tasks, setTasks] = React.useState(urgentTasks)
+
+  const filteredTasks = tasks.filter(t =>
+    t.title.toLowerCase().includes(urgentSearch.toLowerCase()) ||
+    t.project.toLowerCase().includes(urgentSearch.toLowerCase())
+  )
+
   return (
     <div className="flex flex-col gap-8 p-8">
       {/* Header Section */}
@@ -228,20 +238,29 @@ export default function DashboardPage() {
         {/* Urgent Tasks */}
         <Card className="bg-card/40 border-border/50">
           <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-lg">紧急任务提醒</CardTitle>
-              <CardDescription>需要优先处理的延期或临期任务</CardDescription>
+            <div className="flex items-center gap-4">
+              <div className="flex h-9 w-64 items-center gap-2 rounded-lg border border-border/50 bg-background/50 px-3 py-1 shadow-sm">
+                <Activity className="h-4 w-4 text-muted-foreground" />
+                <input
+                  placeholder="搜索任务或项目..."
+                  className="w-full bg-transparent text-sm outline-none transition-all placeholder:text-muted-foreground focus:placeholder:opacity-0"
+                  value={urgentSearch}
+                  onChange={(e) => setUrgentSearch(e.target.value)}
+                />
+              </div>
+              <Button variant="ghost" size="sm">全部任务</Button>
             </div>
-            <Button variant="ghost" size="sm">全部任务</Button>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {urgentTasks.map((task) => (
-                <div key={task.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/30 border border-border/30 hover:bg-muted/50 transition-colors">
+              {filteredTasks.map((task) => (
+                <div key={task.id} className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/30 hover:bg-muted/50 transition-all group cursor-pointer"
+                  onClick={() => toast.info(`查看任务: ${task.title}`, { description: `归属项目: ${task.project}` })}
+                >
                   <div className="flex gap-4">
                     <div className={`mt-1 h-2 w-2 rounded-full ${task.priority === "高" ? "bg-rose-500" : "bg-amber-500"}`} />
                     <div className="grid gap-1">
-                      <span className="font-medium text-sm">{task.title}</span>
+                      <span className="font-medium text-sm group-hover:text-primary transition-colors">{task.title}</span>
                       <span className="text-xs text-muted-foreground">{task.project}</span>
                     </div>
                   </div>
@@ -255,7 +274,7 @@ export default function DashboardPage() {
                         {task.deadline}
                       </span>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
                       <MoreVertical className="h-4 w-4 text-muted-foreground" />
                     </Button>
                   </div>
