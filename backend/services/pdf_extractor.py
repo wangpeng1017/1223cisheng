@@ -1,22 +1,27 @@
+# -*- coding: utf-8 -*-
 """
-@file pdf_extractor.py
-@desc PDF图纸FAI尺寸数据提取服务 - 全面增强版
-@input PDF文件路径
-@output FAI数据列表
-支持格式:
-  - 尺寸公差: 0.352 ±0.025 → 厚度/距离
-  - 几何公差框:
-    - ⌒ 线轮廓度 (Profile of a Line)
-    - ▱ 平面度 (Flatness)
-    - // 平行度 (Parallelism)
-    - ⊥ 垂直度 (Perpendicularity)
-  - 范围公差: R 0.10 MAX / 0.05 MIN → 圆角半径
+@file pdf_extractor_v2.py
+@desc PDF图纸FAI提取 - 数据块识别版
+@strategy 先识别数据块，再匹配FAI
 """
 
 import pdfplumber
 import re
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, asdict
+
+
+@dataclass
+class DataBlock:
+    """测量数据块"""
+    block_type: str       # 类型：radius/dimensional/geometric/profile
+    center_x: float       # 块中心X
+    center_y: float       # 块中心Y
+    symbol: str           # 符号
+    nom: str              # 标准值
+    upper_tol: str        # 上公差
+    lower_tol: str        # 下公差
+    description: str      # 描述
 
 
 @dataclass
@@ -27,7 +32,8 @@ class FAIData:
     nom: Optional[str]
     upper_tol: Optional[str]
     lower_tol: Optional[str]
-    measure_type: str  # 测量类型：厚度/距离、平面度、平行度、线轮廓度、圆角半径等
+    symbol: str
+    measure_type: str
     description: str
     page: int
 
@@ -35,623 +41,451 @@ class FAIData:
         return asdict(self)
 
 
-class PDFExtractor:
-    """PDF FAI数据提取器 - 全面增强版"""
+class PDFExtractorV2:
+    """PDF FAI提取器 - 数据块识别版"""
 
-    # 几何公差符号映射 - 完整GD&T符号表
-    GDT_SYMBOLS = {
-        # 形状公差 (Form)
-        '⌒': '线轮廓度',      # Profile of a Line
-        '⏜': '线轮廓度',      # 替代符号
-        '▱': '平面度',        # Flatness
-        '⏥': '平面度',        # 替代符号
-        '○': '圆度',          # Circularity
-        '⌭': '圆柱度',        # Cylindricity
-        '—': '直线度',        # Straightness
-
-        # 方向公差 (Orientation)
-        '//': '平行度',       # Parallelism
-        '⊥': '垂直度',        # Perpendicularity
-        '∠': '倾斜度',        # Angularity
-
-        # 位置公差 (Location)
-        '⌖': '位置度',        # Position
-        '◎': '同心度',        # Concentricity
-        '⊚': '对称度',        # Symmetry
-
-        # 跳动公差 (Runout)
-        '↗': '圆跳动',        # Circular Runout
-        '↗↗': '全跳动',       # Total Runout
-
-        # 轮廓公差 (Profile)
-        '⌓': '面轮廓度',      # Profile of a Surface
-    }
-
-    def __init__(self, search_radius: int = 500):
-        """
-        初始化提取器
-        Args:
-            search_radius: 搜索半径，增大以匹配更远的标注
-        """
-        self.search_radius = search_radius
+    def __init__(self):
+        self.measure_type_map = {
+            'radius': '圆角半径',
+            'dimensional': '厚度/距离',
+            'geometric_flatness': '平面度',
+            'geometric_parallel': '平行度',
+            'profile': '线轮廓度',
+            'unknown': '未识别'
+        }
 
     def extract_fai_from_pdf(self, pdf_path: str) -> List[FAIData]:
-        """从PDF提取FAI标注和对应尺寸数据"""
+        """从PDF提取FAI数据"""
         results = []
 
         with pdfplumber.open(pdf_path) as pdf:
             for page_num, page in enumerate(pdf.pages):
-                # 提取所有文字及其位置
                 words = page.extract_words(
                     keep_blank_chars=True,
                     x_tolerance=3,
                     y_tolerance=3
                 )
 
-                # 查找所有FAI标注
+                # 第一步：识别所有数据块
+                data_blocks = self._identify_data_blocks(words)
+
+                # 第二步：找所有FAI位置
                 fai_positions = self._find_all_fai(words)
 
-                # 查找所有SPC标注
+                # 第三步：找所有SPC位置
                 spc_positions = self._find_all_spc(words)
 
+                # 第四步：匹配FAI到最近的数据块
                 for fai_num, fai_info in fai_positions.items():
-                    # 提取该FAI的完整数据
-                    fai_data = self._extract_fai_data(
-                        words, fai_info, fai_num, page_num + 1, spc_positions
+                    fai_data = self._match_fai_to_block(
+                        fai_info, fai_num, data_blocks, spc_positions, page_num + 1
                     )
-                    if fai_data:
-                        results.append(fai_data)
+                    results.append(fai_data)
 
         return self._deduplicate_fai(results)
 
+    def _identify_data_blocks(self, words: List[Dict]) -> List[DataBlock]:
+        """识别所有测量数据块"""
+        blocks = []
+
+        # 1. 识别圆角半径块 (R + MAX/MIN 紧密聚合)
+        blocks.extend(self._find_radius_blocks(words))
+
+        # 2. 识别尺寸公差块 (标准值 + 公差配对)
+        blocks.extend(self._find_dimensional_blocks(words))
+
+        # 3. 识别几何公差块 (0.0x + 基准)
+        blocks.extend(self._find_geometric_blocks(words))
+
+        # 4. 识别线轮廓度块 (ALL AROUND)
+        blocks.extend(self._find_profile_blocks(words))
+
+        return blocks
+
+    def _find_radius_blocks(self, words: List[Dict]) -> List[DataBlock]:
+        """识别圆角半径数据块：R + MAX/MIN 紧密聚合"""
+        blocks = []
+        used_indices = set()
+
+        for i, w in enumerate(words):
+            if w['text'].strip() != 'R' or i in used_indices:
+                continue
+
+            r_x, r_y = w['x0'], w['top']
+
+            # 在R附近找MAX/MIN（距离R<50）
+            max_item = min_item = None
+            for j, w2 in enumerate(words):
+                if j in used_indices:
+                    continue
+                dist_to_r = ((w2['x0'] - r_x)**2 + (w2['top'] - r_y)**2)**0.5
+                if dist_to_r > 50:
+                    continue
+
+                text = w2['text'].strip()
+                if re.match(r'^[\d.]+\s*MAX$', text, re.I):
+                    max_item = {'text': text, 'x': w2['x0'], 'y': w2['top'], 'idx': j}
+                elif re.match(r'^[\d.]+\s*MIN$', text, re.I):
+                    min_item = {'text': text, 'x': w2['x0'], 'y': w2['top'], 'idx': j}
+
+            # 必须有MAX或MIN才算圆角半径块
+            if not max_item and not min_item:
+                continue
+
+            # 计算块中心
+            points = [(r_x, r_y)]
+            if max_item:
+                points.append((max_item['x'], max_item['y']))
+                used_indices.add(max_item['idx'])
+            if min_item:
+                points.append((min_item['x'], min_item['y']))
+                used_indices.add(min_item['idx'])
+            used_indices.add(i)
+
+            center_x = sum(p[0] for p in points) / len(points)
+            center_y = sum(p[1] for p in points) / len(points)
+
+            # 提取值
+            max_val = min_val = None
+            if max_item:
+                m = re.match(r'^([\d.]+)\s*MAX$', max_item['text'], re.I)
+                if m:
+                    max_val = m.group(1)
+            if min_item:
+                m = re.match(r'^([\d.]+)\s*MIN$', min_item['text'], re.I)
+                if m:
+                    min_val = m.group(1)
+
+            blocks.append(DataBlock(
+                block_type='radius',
+                center_x=center_x,
+                center_y=center_y,
+                symbol='R',
+                nom='-',
+                upper_tol=f'{max_val} MAX' if max_val else '-',
+                lower_tol=f'{min_val} MIN' if min_val else '-',
+                description=''
+            ))
+
+        return blocks
+
+    def _find_dimensional_blocks(self, words: List[Dict]) -> List[DataBlock]:
+        """识别尺寸公差数据块：标准值 + 公差值配对"""
+        blocks = []
+
+        # 收集所有数值
+        values = []
+        for i, w in enumerate(words):
+            text = w['text'].strip()
+            if not re.match(r'^\d+\.?\d*$', text):
+                continue
+            # 排除可能是FAI编号的整数
+            if '.' not in text:
+                try:
+                    v = int(text)
+                    if 1 <= v <= 99:
+                        continue
+                except:
+                    pass
+            try:
+                val = float(text)
+                values.append({
+                    'text': text, 'value': val,
+                    'x': w['x0'], 'y': w['top'], 'idx': i
+                })
+            except:
+                pass
+
+        # 找标准值-公差配对
+        used_indices = set()
+        for nom in values:
+            if nom['idx'] in used_indices:
+                continue
+            # 标准值通常 >= 0.1
+            if nom['value'] < 0.1:
+                continue
+
+            # 在附近找公差值（<0.5，有2位以上小数）
+            for tol in values:
+                if tol['idx'] in used_indices or tol['idx'] == nom['idx']:
+                    continue
+                if tol['value'] >= 0.5:
+                    continue
+                if '.' not in tol['text'] or len(tol['text'].split('.')[-1]) < 2:
+                    continue
+
+                # 检查是否相邻（水平或垂直）
+                dx = abs(nom['x'] - tol['x'])
+                dy = abs(nom['y'] - tol['y'])
+                if not ((dx < 100 and dy < 30) or (dx < 40 and dy < 50)):
+                    continue
+
+                # 公差应该比标准值小很多
+                if tol['value'] >= nom['value']:
+                    continue
+
+                # 创建数据块
+                center_x = (nom['x'] + tol['x']) / 2
+                center_y = (nom['y'] + tol['y']) / 2
+
+                blocks.append(DataBlock(
+                    block_type='dimensional',
+                    center_x=center_x,
+                    center_y=center_y,
+                    symbol='±',
+                    nom=nom['text'],
+                    upper_tol=f"+{tol['text']}",
+                    lower_tol=f"-{tol['text']}",
+                    description=''
+                ))
+
+                used_indices.add(nom['idx'])
+                used_indices.add(tol['idx'])
+                break
+
+        return blocks
+
+    def _find_geometric_blocks(self, words: List[Dict]) -> List[DataBlock]:
+        """识别几何公差数据块：0.0x格式 + 基准字母"""
+        blocks = []
+
+        for i, w in enumerate(words):
+            text = w['text'].strip()
+            # 几何公差通常是 0.0x 格式
+            if not re.match(r'^0\.0\d{1,2}$', text):
+                continue
+
+            tol_x, tol_y = w['x0'], w['top']
+            tol_val = text
+
+            # 在附近找基准字母（A/B/C）
+            datum = None
+            datum_x = None
+            for j, w2 in enumerate(words):
+                if not re.match(r'^[A-C]$', w2['text'].strip()):
+                    continue
+                dist = ((w2['x0'] - tol_x)**2 + (w2['top'] - tol_y)**2)**0.5
+                if dist < 150:
+                    datum = w2['text'].strip()
+                    datum_x = w2['x0']
+                    break
+
+            if not datum:
+                continue
+
+            # 检查附近是否有标准值配对（如果有，说明是尺寸公差，跳过）
+            has_nominal = False
+            for j, w2 in enumerate(words):
+                if not re.match(r'^\d+\.\d+$', w2['text'].strip()):
+                    continue
+                try:
+                    val = float(w2['text'].strip())
+                    if val >= 0.1:
+                        dx = abs(w2['x0'] - tol_x)
+                        dy = abs(w2['top'] - tol_y)
+                        if (dx < 100 and dy < 30) or (dx < 40 and dy < 50):
+                            has_nominal = True
+                            break
+                except:
+                    pass
+
+            if has_nominal:
+                continue
+
+            # 根据基准位置判断类型
+            if datum_x < tol_x:
+                block_type = 'geometric_flatness'
+                symbol = '▱'
+                desc = f'定义基准 {datum}'
+            else:
+                block_type = 'geometric_parallel'
+                symbol = '//'
+                desc = f'相对基准 {datum}'
+
+            blocks.append(DataBlock(
+                block_type=block_type,
+                center_x=tol_x,
+                center_y=tol_y,
+                symbol=symbol,
+                nom='0',
+                upper_tol=tol_val,
+                lower_tol='0',
+                description=desc
+            ))
+
+        return blocks
+
+    def _find_profile_blocks(self, words: List[Dict]) -> List[DataBlock]:
+        """识别线轮廓度数据块：ALL AROUND 关键词"""
+        blocks = []
+
+        for i, w in enumerate(words):
+            text = w['text'].strip().upper()
+            # 直接匹配 "ALL AROUND" 或分开的 "ALL" + "AROUND"
+            if text == 'ALL AROUND':
+                center_x, center_y = w['x0'], w['top']
+
+                # 找附近的公差值 (0.xx 格式)
+                tol_val = None
+                for w2 in words:
+                    if re.match(r'^0\.\d{1,3}$', w2['text'].strip()):
+                        dist = ((w2['x0'] - center_x)**2 + (w2['top'] - center_y)**2)**0.5
+                        if dist < 150:
+                            tol_val = w2['text'].strip()
+                            break
+
+                if tol_val:
+                    blocks.append(DataBlock(
+                        block_type='profile',
+                        center_x=center_x,
+                        center_y=center_y,
+                        symbol='⌒',
+                        nom='0',
+                        upper_tol=tol_val,
+                        lower_tol='0',
+                        description='全周'
+                    ))
+
+        return blocks
+
     def _find_all_fai(self, words: List[Dict]) -> Dict[int, Dict]:
-        """查找所有FAI标注及其位置"""
+        """查找所有FAI标注"""
         fai_positions = {}
 
         for i, w in enumerate(words):
             text = w['text'].strip()
 
-            # 匹配 "FAI" 文字
             if text == 'FAI':
                 fai_x, fai_y = w['x0'], w['top']
-
-                # 在附近查找FAI编号
                 for j in range(i + 1, min(i + 10, len(words))):
                     nw = words[j]
                     dist = ((nw['x0'] - fai_x)**2 + (nw['top'] - fai_y)**2)**0.5
-
                     if dist < 80 and re.match(r'^[0-9]{1,2}$', nw['text'].strip()):
                         fai_num = int(nw['text'].strip())
                         if 1 <= fai_num <= 99:
-                            fai_positions[fai_num] = {
-                                'x': fai_x,
-                                'y': fai_y,
-                                'index': i
-                            }
+                            fai_positions[fai_num] = {'x': fai_x, 'y': fai_y}
                         break
 
-            # 也匹配合并的 "FAI4" "FAI12" 等格式
             match = re.match(r'^FAI\s*(\d{1,2})$', text)
             if match:
                 fai_num = int(match.group(1))
                 if 1 <= fai_num <= 99:
-                    fai_positions[fai_num] = {
-                        'x': w['x0'],
-                        'y': w['top'],
-                        'index': i
-                    }
+                    fai_positions[fai_num] = {'x': w['x0'], 'y': w['top']}
 
         return fai_positions
 
     def _find_all_spc(self, words: List[Dict]) -> Dict[str, Dict]:
-        """查找所有SPC标注及其位置"""
+        """查找所有SPC标注"""
         spc_positions = {}
 
         for i, w in enumerate(words):
-            text = w['text'].strip()
-
-            # 匹配 "SPC" 文字
-            if text == 'SPC':
+            if w['text'].strip() == 'SPC':
                 spc_x, spc_y = w['x0'], w['top']
-
-                # 在附近查找SPC字母
                 for j in range(i + 1, min(i + 8, len(words))):
                     nw = words[j]
                     dist = ((nw['x0'] - spc_x)**2 + (nw['top'] - spc_y)**2)**0.5
-
                     if dist < 60 and re.match(r'^[A-Z]$', nw['text'].strip()):
-                        spc_letter = nw['text'].strip()
-                        spc_positions[spc_letter] = {
-                            'x': spc_x,
-                            'y': spc_y,
-                            'letter': spc_letter
-                        }
+                        letter = nw['text'].strip()
+                        spc_positions[letter] = {'x': spc_x, 'y': spc_y}
                         break
 
         return spc_positions
 
-    def _extract_fai_data(
+    def _match_fai_to_block(
         self,
-        words: List[Dict],
         fai_info: Dict,
         fai_num: int,
-        page: int,
-        spc_positions: Dict[str, Dict]
-    ) -> Optional[FAIData]:
-        """提取单个FAI的完整数据"""
+        data_blocks: List[DataBlock],
+        spc_positions: Dict,
+        page: int
+    ) -> FAIData:
+        """将FAI匹配到最近的数据块，提供置信度排名"""
         fai_x, fai_y = fai_info['x'], fai_info['y']
 
-        # 收集FAI附近的所有文本（扩大范围）
-        nearby_texts = self._collect_nearby_texts(words, fai_x, fai_y)
+        # 找最近的SPC
+        spc = None
+        min_spc_dist = float('inf')
+        for letter, pos in spc_positions.items():
+            dist = ((pos['x'] - fai_x)**2 + (pos['y'] - fai_y)**2)**0.5
+            if dist < 150 and dist < min_spc_dist:
+                min_spc_dist = dist
+                spc = letter
 
-        # 查找最近的SPC编号
-        spc = self._find_nearest_spc(fai_x, fai_y, spc_positions)
+        # 计算到所有数据块的距离，按距离排序
+        candidates = []
+        for block in data_blocks:
+            dist = ((block.center_x - fai_x)**2 + (block.center_y - fai_y)**2)**0.5
+            if dist < 500:  # 搜索范围
+                candidates.append((block, dist))
 
-        # 收集附近的描述文字
-        description_texts = self._collect_description_texts(nearby_texts)
+        candidates.sort(key=lambda x: x[1])
 
-        # 尝试不同的解析策略（按优先级）
-        result = None
-
-        # 策略1: 查找几何公差框 (GD&T符号)
-        result = self._parse_gdt_frame(nearby_texts)
-
-        # 策略2: 查找范围公差 (如 R 0.10 MAX / 0.05 MIN) - 圆角半径
-        if not result:
-            result = self._parse_range_tolerance(nearby_texts)
-
-        # 策略3: 查找尺寸公差 (如 0.352 ±0.025) - 厚度/距离
-        if not result:
-            result = self._parse_dimensional_tolerance(nearby_texts, fai_x, fai_y)
-
-        # 策略4: 查找独立几何公差值 (如单独的 0.03)
-        if not result:
-            result = self._parse_geometric_tolerance(nearby_texts)
-
-        if result:
-            nom, upper_tol, lower_tol, measure_type, tol_description = result
-            # 合并描述
-            full_description = tol_description
-            if description_texts:
-                if full_description:
-                    full_description = f"{full_description} | {description_texts}"
-                else:
-                    full_description = description_texts
-
+        if not candidates:
             return FAIData(
                 fai_num=fai_num,
                 spc=spc,
-                nom=nom,
-                upper_tol=upper_tol,
-                lower_tol=lower_tol,
-                measure_type=measure_type,
-                description=full_description,
+                nom='-',
+                upper_tol='-',
+                lower_tol='-',
+                symbol='-',
+                measure_type='未识别',
+                description='',
                 page=page
             )
+
+        # 最近的块作为默认
+        best_block, best_dist = candidates[0]
+        measure_type = self.measure_type_map.get(best_block.block_type, '未识别')
+
+        # 构建描述，包含置信度信息
+        desc_parts = [best_block.description] if best_block.description else []
+        desc_parts.append(f'距离:{best_dist:.0f}')
+
+        # 如果有其他近距离候选（距离差<100），列出供参考
+        if len(candidates) > 1:
+            alt_candidates = []
+            for block, dist in candidates[1:4]:  # 最多显示3个备选
+                if dist - best_dist < 150:  # 距离差不大时才显示
+                    alt_type = self.measure_type_map.get(block.block_type, '?')
+                    alt_candidates.append(f'{alt_type}({dist:.0f})')
+            if alt_candidates:
+                desc_parts.append(f'备选:{",".join(alt_candidates)}')
 
         return FAIData(
             fai_num=fai_num,
             spc=spc,
-            nom='-',
-            upper_tol='-',
-            lower_tol='-',
-            measure_type='未识别',
-            description=description_texts or '',
+            nom=best_block.nom,
+            upper_tol=best_block.upper_tol,
+            lower_tol=best_block.lower_tol,
+            symbol=best_block.symbol,
+            measure_type=measure_type,
+            description=' | '.join(desc_parts),
             page=page
         )
 
-    def _collect_nearby_texts(
-        self,
-        words: List[Dict],
-        fai_x: float,
-        fai_y: float
-    ) -> List[Dict]:
-        """收集FAI附近的所有文本"""
-        nearby = []
-
-        for w in words:
-            dx = w['x0'] - fai_x
-            dy = w['top'] - fai_y
-            dist = (dx**2 + dy**2)**0.5
-
-            if dist < self.search_radius:
-                nearby.append({
-                    'text': w['text'].strip(),
-                    'x': w['x0'],
-                    'y': w['top'],
-                    'x1': w.get('x1', w['x0'] + 20),
-                    'dist': dist,
-                    'dx': dx,
-                    'dy': dy
-                })
-
-        nearby.sort(key=lambda x: x['dist'])
-        return nearby
-
-    def _find_nearest_spc(
-        self,
-        fai_x: float,
-        fai_y: float,
-        spc_positions: Dict[str, Dict]
-    ) -> Optional[str]:
-        """查找距离FAI最近的SPC标注"""
-        min_dist = float('inf')
-        nearest_spc = None
-
-        for letter, pos in spc_positions.items():
-            dist = ((pos['x'] - fai_x)**2 + (pos['y'] - fai_y)**2)**0.5
-            if dist < 150 and dist < min_dist:
-                min_dist = dist
-                nearest_spc = letter
-
-        return nearest_spc
-
-    def _collect_description_texts(self, nearby_texts: List[Dict]) -> str:
-        """收集附近的描述性文字"""
-        descriptions = []
-
-        # 常见的描述性关键词
-        keywords = [
-            'AFTER', 'BEFORE', 'PLATING', 'TUMBLING', 'NATURAL', 'RADII',
-            'TYP', 'REF', 'BASIC', 'BSC', 'FULL', 'PERIPHERY'
-        ]
-
-        for item in nearby_texts[:40]:
-            text = item['text'].upper()
-            # 检查是否包含描述性关键词
-            for kw in keywords:
-                if kw in text and len(item['text']) > 2:
-                    # 排除纯数字和FAI/SPC/MAX/MIN标记
-                    if not re.match(r'^[\d.±]+$', item['text']):
-                        if item['text'].upper() not in ['FAI', 'SPC', 'MAX', 'MIN']:
-                            descriptions.append(item['text'])
-                            break
-
-        # 去重并合并
-        seen = set()
-        unique_desc = []
-        for d in descriptions:
-            if d.upper() not in seen:
-                seen.add(d.upper())
-                unique_desc.append(d)
-
-        return ' '.join(unique_desc[:5])
-
-    def _parse_gdt_frame(
-        self,
-        nearby_texts: List[Dict]
-    ) -> Optional[Tuple[str, str, str, str, str]]:
-        """
-        解析几何公差框 (GD&T)
-        返回: (nom, upper_tol, lower_tol, measure_type, description)
-
-        支持的符号:
-        - ⌒ 线轮廓度 (Profile of a Line)
-        - ▱ 平面度 (Flatness)
-        - // 平行度 (Parallelism)
-        - ⊥ 垂直度 (Perpendicularity)
-        - ○ 圆度 (Circularity)
-        """
-        texts = [t['text'] for t in nearby_texts[:35]]
-        texts_str = ' '.join(texts)
-
-        # 查找几何公差符号
-        measure_type = None
-
-        # 检测各种GD&T符号
-        for i, text in enumerate(texts):
-            # 线轮廓度 ⌒
-            if text in ['⌒', '⏜'] or '⌒' in text or '⏜' in text:
-                measure_type = '线轮廓度'
-                break
-
-            # 平面度 ▱
-            if text in ['▱', '⏥', '◇', '◊'] or '▱' in text:
-                measure_type = '平面度'
-                break
-
-            # 平行度 //
-            if text == '//' or (len(text) >= 2 and '//' in text):
-                measure_type = '平行度'
-                break
-
-            # 垂直度 ⊥
-            if text == '⊥' or '⊥' in text:
-                measure_type = '垂直度'
-                break
-
-            # 圆度 ○
-            if text == '○' or '○' in text:
-                measure_type = '圆度'
-                break
-
-            # 同心度 ◎
-            if text == '◎' or '◎' in text:
-                measure_type = '同心度'
-                break
-
-            # 位置度 ⌖
-            if text == '⌖' or '⌖' in text:
-                measure_type = '位置度'
-                break
-
-        if not measure_type:
-            return None
-
-        # 在符号附近查找公差值和基准
-        tol_value = None
-        datum = None
-
-        for item in nearby_texts[:30]:
-            text = item['text']
-
-            # 查找公差值 (0.0x 或 0.xx 格式)
-            if re.match(r'^0\.\d{2,3}$', text):
-                if not tol_value:
-                    tol_value = text
-
-            # 查找基准字母 (A, B, C)
-            if re.match(r'^[A-C]$', text) and item['dist'] < 200:
-                if not datum:
-                    datum = text
-
-        if tol_value:
-            description = ''
-            if datum:
-                description = f'基准 {datum}'
-
-            return ('0', tol_value, '0', measure_type, description)
-
-        return None
-
-    def _parse_dimensional_tolerance(
-        self,
-        nearby_texts: List[Dict],
-        fai_x: float,
-        fai_y: float
-    ) -> Optional[Tuple[str, str, str, str, str]]:
-        """
-        解析尺寸公差 - 厚度/距离
-        格式: 标准值 ±公差 或 标准值 公差
-        例如: 0.352 ±0.025, 10.50 ±0.05
-        返回: (nom, upper_tol, lower_tol, measure_type, description)
-        """
-        # 首先检查是否有 ± 符号连接的格式
-        for item in nearby_texts[:30]:
-            text = item['text']
-            # 匹配 "0.352±0.025" 或 "0.352 ±0.025" 合并格式
-            match = re.match(r'^(\d+\.?\d*)\s*[±]\s*(\d+\.?\d*)$', text)
-            if match:
-                nom = match.group(1)
-                tol = match.group(2)
-                return (nom, f'+{tol}', f'-{tol}', '厚度/距离', '')
-
-        # 分类文本
-        tolerances = []  # 公差值 (小数, 通常 < 0.5)
-        nominals = []    # 标准值
-
-        for item in nearby_texts[:40]:
-            text = item['text']
-
-            # 跳过标记
-            if text.upper() in ['FAI', 'SPC', '100%', 'MAX', 'MIN', 'R', 'A', 'B', 'C', '//', 'TYP']:
-                continue
-
-            # 匹配带±的公差
-            if '±' in text:
-                match = re.match(r'[±]?\s*(\d+\.?\d*)$', text.replace('±', ''))
-                if match:
-                    tolerances.append({**item, 'value': float(match.group(1))})
-                continue
-
-            # 匹配纯数值
-            if re.match(r'^\d+\.?\d*$', text):
-                try:
-                    val = float(text)
-                    # 根据数值大小和小数位数判断类型
-                    if val < 0.5 and '.' in text and len(text.split('.')[-1]) >= 2:
-                        # 小数值，可能是公差
-                        tolerances.append({**item, 'value': val})
-                    else:
-                        # 可能是标准值
-                        nominals.append({**item, 'value': val})
-                except:
-                    pass
-
-        # 查找最佳的 标准值-公差 配对
-        best_pair = None
-        best_score = float('inf')
-
-        for tol in tolerances:
-            tol_x, tol_y = tol['x'], tol['y']
-
-            for nom in nominals:
-                nom_x, nom_y = nom['x'], nom['y']
-
-                # 计算相对位置
-                dx = tol_x - nom_x
-                dy = abs(tol_y - nom_y)
-
-                # 条件: 同一水平线或垂直相邻
-                horizontal_match = (abs(dx) < 250 and dy < 30)
-                vertical_match = (abs(dx) < 50 and 0 < dy < 40)
-
-                if horizontal_match or vertical_match:
-                    score = tol['dist'] + nom['dist'] + dy * 3
-
-                    # 标准值应该比公差大
-                    if nom['value'] > tol['value']:
-                        score -= 30
-
-                    if score < best_score:
-                        best_score = score
-                        best_pair = (nom, tol)
-
-        if best_pair:
-            nom_item, tol_item = best_pair
-            nom_val = nom_item['text']
-            tol_val = tol_item['text'].replace('±', '')
-            return (nom_val, f'+{tol_val}', f'-{tol_val}', '厚度/距离', '')
-
-        # 备选: 只找到标准值
-        if nominals:
-            best_nom = min(nominals, key=lambda x: x['dist'])
-            if best_nom['dist'] < 200:
-                return (best_nom['text'], '-', '-', '厚度/距离', '')
-
-        return None
-
-    def _parse_range_tolerance(
-        self,
-        nearby_texts: List[Dict]
-    ) -> Optional[Tuple[str, str, str, str, str]]:
-        """
-        解析范围公差 - 圆角半径
-        格式: R 0.10 MAX / 0.05 MIN 或 0.10 MAX
-        返回: (nom, upper_tol, lower_tol, measure_type, description)
-        """
-        max_val = None
-        min_val = None
-        has_radius = False
-
-        texts_str = ' '.join([t['text'] for t in nearby_texts[:35]])
-
-        # 检查是否是半径 (R 或 RADII)
-        if re.search(r'\bR\b', texts_str) or 'RADII' in texts_str.upper():
-            has_radius = True
-
-        # 查找 MAX 值
-        for i, item in enumerate(nearby_texts[:30]):
-            text = item['text'].upper()
-            if text == 'MAX':
-                # 向前查找数值
-                for j in range(i - 1, max(0, i - 6), -1):
-                    prev_text = nearby_texts[j]['text']
-                    if re.match(r'^[\d.]+$', prev_text):
-                        max_val = prev_text
-                        break
-
-        # 查找 MIN 值
-        for i, item in enumerate(nearby_texts[:30]):
-            text = item['text'].upper()
-            if text == 'MIN':
-                # 向前查找数值
-                for j in range(i - 1, max(0, i - 6), -1):
-                    prev_text = nearby_texts[j]['text']
-                    if re.match(r'^[\d.]+$', prev_text):
-                        min_val = prev_text
-                        break
-
-        if max_val or min_val:
-            # 如果有 R 或 RADII，则是圆角半径
-            measure_type = '圆角半径' if has_radius else '范围公差'
-            description = ''
-
-            return (
-                '-',
-                f'{max_val} MAX' if max_val else '-',
-                f'{min_val} MIN' if min_val else '-',
-                measure_type,
-                description
-            )
-
-        return None
-
-    def _parse_geometric_tolerance(
-        self,
-        nearby_texts: List[Dict]
-    ) -> Optional[Tuple[str, str, str, str, str]]:
-        """
-        解析独立几何公差值（没有明确符号时的备用）
-        格式: 单独的 0.03 等小数值
-        返回: (nom, upper_tol, lower_tol, measure_type, description)
-        """
-        # 查找几何公差值 (0.0x 格式)
-        for item in nearby_texts[:20]:
-            text = item['text']
-
-            # 匹配几何公差值 (0.0x 或 0.00x 格式)
-            if re.match(r'^0\.0\d{1,2}$', text):
-                tol_val = text
-
-                # 查找关联的基准 (单个大写字母)
-                datum = None
-                for j_item in nearby_texts[:25]:
-                    if j_item['dist'] < 200:
-                        if re.match(r'^[A-C]$', j_item['text']):
-                            datum = j_item['text']
-                            break
-
-                measure_type = '几何公差'
-                description = ''
-                if datum:
-                    description = f'基准 {datum}'
-
-                return ('0', tol_val, '0', measure_type, description)
-
-        return None
-
     def _deduplicate_fai(self, results: List[FAIData]) -> List[FAIData]:
-        """去重，保留最完整的数据"""
+        """去重"""
         seen = {}
-
         for r in results:
-            key = r.fai_num
-
-            if key not in seen:
-                seen[key] = r
+            if r.fai_num not in seen:
+                seen[r.fai_num] = r
             else:
-                existing = seen[key]
-                new_score = self._data_completeness_score(r)
-                old_score = self._data_completeness_score(existing)
-
-                if new_score > old_score:
-                    seen[key] = r
-
+                # 保留有更多信息的
+                if r.measure_type != '未识别' and seen[r.fai_num].measure_type == '未识别':
+                    seen[r.fai_num] = r
         return sorted(seen.values(), key=lambda x: x.fai_num)
 
-    def _data_completeness_score(self, data: FAIData) -> int:
-        """计算数据完整性得分"""
-        score = 0
-        if data.nom and data.nom != '-':
-            score += 3
-        if data.upper_tol and data.upper_tol != '-':
-            score += 2
-        if data.lower_tol and data.lower_tol != '-':
-            score += 2
-        if data.spc:
-            score += 1
-        if data.measure_type and data.measure_type != '未识别':
-            score += 2
-        if data.description:
-            score += 1
-        return score
 
-
-def extract_fai(pdf_path: str, search_radius: int = 500) -> List[dict]:
-    """
-    提取PDF中的FAI数据
-
-    Args:
-        pdf_path: PDF文件路径
-        search_radius: 搜索半径 (默认500像素)
-
-    Returns:
-        FAI数据字典列表
-    """
-    extractor = PDFExtractor(search_radius)
+def extract_fai(pdf_path: str) -> List[dict]:
+    """提取PDF中的FAI数据"""
+    extractor = PDFExtractorV2()
     results = extractor.extract_fai_from_pdf(pdf_path)
     return [r.to_dict() for r in results]
 
 
-# ============ 调试用 ============
 if __name__ == '__main__':
     import sys
     import json
-
     if len(sys.argv) > 1:
-        pdf_path = sys.argv[1]
-        results = extract_fai(pdf_path)
+        results = extract_fai(sys.argv[1])
         print(json.dumps(results, ensure_ascii=False, indent=2))
-    else:
-        print("Usage: python pdf_extractor.py <pdf_path>")

@@ -33,6 +33,7 @@ class FAIItem(Base):
     nom = Column(String(50), nullable=True)
     upper_tol = Column(String(50), nullable=True)
     lower_tol = Column(String(50), nullable=True)
+    symbol = Column(String(20), nullable=True)  # GD&T符号: ⌒ ▱ // R ± 等
     measure_type = Column(String(50), nullable=True)  # 测量类型：尺寸公差/平面度/平行度/圆角半径等
     description = Column(Text, nullable=True)
     page = Column(Integer, nullable=True)
