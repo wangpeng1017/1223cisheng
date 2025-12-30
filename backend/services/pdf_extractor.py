@@ -4,10 +4,13 @@
 @input PDF文件路径
 @output FAI数据列表
 支持格式:
-  - 尺寸公差: 0.352 ±0.025 (含描述如 AFTER PLATING)
-  - 几何公差框: // | 0.03 | A (平行度/平面度等)
-  - 范围公差: R 0.10 MAX / 0.05 MIN
-  - 基准标注: A, B, C 等
+  - 尺寸公差: 0.352 ±0.025 → 厚度/距离
+  - 几何公差框:
+    - ⌒ 线轮廓度 (Profile of a Line)
+    - ▱ 平面度 (Flatness)
+    - // 平行度 (Parallelism)
+    - ⊥ 垂直度 (Perpendicularity)
+  - 范围公差: R 0.10 MAX / 0.05 MIN → 圆角半径
 """
 
 import pdfplumber
@@ -24,7 +27,7 @@ class FAIData:
     nom: Optional[str]
     upper_tol: Optional[str]
     lower_tol: Optional[str]
-    measure_type: str  # 测量类型：尺寸公差/平面度/平行度/圆角半径等
+    measure_type: str  # 测量类型：厚度/距离、平面度、平行度、线轮廓度、圆角半径等
     description: str
     page: int
 
@@ -35,17 +38,33 @@ class FAIData:
 class PDFExtractor:
     """PDF FAI数据提取器 - 全面增强版"""
 
-    # 几何公差符号映射
+    # 几何公差符号映射 - 完整GD&T符号表
     GDT_SYMBOLS = {
-        '//': '平行度 (Parallelism)',
-        '⊥': '垂直度 (Perpendicularity)',
-        '—': '平面度 (Flatness)',
-        '○': '圆度 (Circularity)',
-        '◎': '同心度 (Concentricity)',
-        '↗': '位置度 (Position)',
-        '⌀': '直径 (Diameter)',
-        '⏥': '平面度 (Flatness)',
-        '▱': '平面度 (Flatness)',
+        # 形状公差 (Form)
+        '⌒': '线轮廓度',      # Profile of a Line
+        '⏜': '线轮廓度',      # 替代符号
+        '▱': '平面度',        # Flatness
+        '⏥': '平面度',        # 替代符号
+        '○': '圆度',          # Circularity
+        '⌭': '圆柱度',        # Cylindricity
+        '—': '直线度',        # Straightness
+
+        # 方向公差 (Orientation)
+        '//': '平行度',       # Parallelism
+        '⊥': '垂直度',        # Perpendicularity
+        '∠': '倾斜度',        # Angularity
+
+        # 位置公差 (Location)
+        '⌖': '位置度',        # Position
+        '◎': '同心度',        # Concentricity
+        '⊚': '对称度',        # Symmetry
+
+        # 跳动公差 (Runout)
+        '↗': '圆跳动',        # Circular Runout
+        '↗↗': '全跳动',       # Total Runout
+
+        # 轮廓公差 (Profile)
+        '⌓': '面轮廓度',      # Profile of a Surface
     }
 
     def __init__(self, search_radius: int = 500):
@@ -171,29 +190,23 @@ class PDFExtractor:
         # 收集附近的描述文字
         description_texts = self._collect_description_texts(nearby_texts)
 
-        # 尝试不同的解析策略
+        # 尝试不同的解析策略（按优先级）
         result = None
 
-        # 策略1: 查找几何公差框 (如 // | 0.03 | A 或 平面度符号)
+        # 策略1: 查找几何公差框 (GD&T符号)
         result = self._parse_gdt_frame(nearby_texts)
 
-        # 策略2: 查找尺寸公差 (如 0.352 ±0.025)
-        if not result or result[0] == '-':
-            dim_result = self._parse_dimensional_tolerance(nearby_texts, fai_x, fai_y)
-            if dim_result and dim_result[0] != '-':
-                result = dim_result
+        # 策略2: 查找范围公差 (如 R 0.10 MAX / 0.05 MIN) - 圆角半径
+        if not result:
+            result = self._parse_range_tolerance(nearby_texts)
 
-        # 策略3: 查找范围公差 (如 R 0.10 MAX / 0.05 MIN)
-        if not result or result[0] == '-':
-            range_result = self._parse_range_tolerance(nearby_texts)
-            if range_result and (range_result[1] != '-' or range_result[2] != '-'):
-                result = range_result
+        # 策略3: 查找尺寸公差 (如 0.352 ±0.025) - 厚度/距离
+        if not result:
+            result = self._parse_dimensional_tolerance(nearby_texts, fai_x, fai_y)
 
         # 策略4: 查找独立几何公差值 (如单独的 0.03)
-        if not result or result[0] == '-':
-            geo_result = self._parse_geometric_tolerance(nearby_texts)
-            if geo_result and geo_result[0] != '-':
-                result = geo_result
+        if not result:
+            result = self._parse_geometric_tolerance(nearby_texts)
 
         if result:
             nom, upper_tol, lower_tol, measure_type, tol_description = result
@@ -267,7 +280,7 @@ class PDFExtractor:
 
         for letter, pos in spc_positions.items():
             dist = ((pos['x'] - fai_x)**2 + (pos['y'] - fai_y)**2)**0.5
-            if dist < 150 and dist < min_dist:  # 150像素范围内
+            if dist < 150 and dist < min_dist:
                 min_dist = dist
                 nearest_spc = letter
 
@@ -280,17 +293,17 @@ class PDFExtractor:
         # 常见的描述性关键词
         keywords = [
             'AFTER', 'BEFORE', 'PLATING', 'TUMBLING', 'NATURAL', 'RADII',
-            'MAX', 'MIN', 'TYP', 'REF', 'BASIC', 'BSC'
+            'TYP', 'REF', 'BASIC', 'BSC', 'FULL', 'PERIPHERY'
         ]
 
-        for item in nearby_texts[:40]:  # 搜索前40个最近的文本
+        for item in nearby_texts[:40]:
             text = item['text'].upper()
             # 检查是否包含描述性关键词
             for kw in keywords:
                 if kw in text and len(item['text']) > 2:
-                    # 排除纯数字和FAI/SPC标记
+                    # 排除纯数字和FAI/SPC/MAX/MIN标记
                     if not re.match(r'^[\d.±]+$', item['text']):
-                        if item['text'] not in ['FAI', 'SPC']:
+                        if item['text'].upper() not in ['FAI', 'SPC', 'MAX', 'MIN']:
                             descriptions.append(item['text'])
                             break
 
@@ -302,52 +315,77 @@ class PDFExtractor:
                 seen.add(d.upper())
                 unique_desc.append(d)
 
-        return ' '.join(unique_desc[:5])  # 最多取5个描述词
+        return ' '.join(unique_desc[:5])
 
     def _parse_gdt_frame(
         self,
         nearby_texts: List[Dict]
     ) -> Optional[Tuple[str, str, str, str, str]]:
         """
-        解析几何公差框
-        格式: // | 0.03 | A (平行度)
-              ▱ | 0.03 (平面度)
+        解析几何公差框 (GD&T)
         返回: (nom, upper_tol, lower_tol, measure_type, description)
+
+        支持的符号:
+        - ⌒ 线轮廓度 (Profile of a Line)
+        - ▱ 平面度 (Flatness)
+        - // 平行度 (Parallelism)
+        - ⊥ 垂直度 (Perpendicularity)
+        - ○ 圆度 (Circularity)
         """
-        texts = [t['text'] for t in nearby_texts[:30]]
+        texts = [t['text'] for t in nearby_texts[:35]]
+        texts_str = ' '.join(texts)
 
         # 查找几何公差符号
-        gdt_symbol = None
         measure_type = None
 
+        # 检测各种GD&T符号
         for i, text in enumerate(texts):
-            # 检查平行度符号
-            if text == '//' or '//' in text:
-                gdt_symbol = '//'
-                measure_type = '平行度'
+            # 线轮廓度 ⌒
+            if text in ['⌒', '⏜'] or '⌒' in text or '⏜' in text:
+                measure_type = '线轮廓度'
                 break
-            # 检查平面度符号 (各种Unicode表示)
-            if text in ['▱', '⏥', '◇', '◊'] or '平面' in text:
-                gdt_symbol = '▱'
+
+            # 平面度 ▱
+            if text in ['▱', '⏥', '◇', '◊'] or '▱' in text:
                 measure_type = '平面度'
                 break
-            # 检查垂直度符号
+
+            # 平行度 //
+            if text == '//' or (len(text) >= 2 and '//' in text):
+                measure_type = '平行度'
+                break
+
+            # 垂直度 ⊥
             if text == '⊥' or '⊥' in text:
-                gdt_symbol = '⊥'
                 measure_type = '垂直度'
                 break
 
-        if not gdt_symbol:
+            # 圆度 ○
+            if text == '○' or '○' in text:
+                measure_type = '圆度'
+                break
+
+            # 同心度 ◎
+            if text == '◎' or '◎' in text:
+                measure_type = '同心度'
+                break
+
+            # 位置度 ⌖
+            if text == '⌖' or '⌖' in text:
+                measure_type = '位置度'
+                break
+
+        if not measure_type:
             return None
 
         # 在符号附近查找公差值和基准
         tol_value = None
         datum = None
 
-        for item in nearby_texts[:25]:
+        for item in nearby_texts[:30]:
             text = item['text']
 
-            # 查找公差值 (0.0x 格式)
+            # 查找公差值 (0.0x 或 0.xx 格式)
             if re.match(r'^0\.\d{2,3}$', text):
                 if not tol_value:
                     tol_value = text
@@ -358,9 +396,9 @@ class PDFExtractor:
                     datum = text
 
         if tol_value:
-            description = f'{measure_type} (GD&T)'
+            description = ''
             if datum:
-                description = f'to Datum {datum}'
+                description = f'基准 {datum}'
 
             return ('0', tol_value, '0', measure_type, description)
 
@@ -373,9 +411,9 @@ class PDFExtractor:
         fai_y: float
     ) -> Optional[Tuple[str, str, str, str, str]]:
         """
-        解析尺寸公差
+        解析尺寸公差 - 厚度/距离
         格式: 标准值 ±公差 或 标准值 公差
-        例如: 0.352 ±0.025, 10.50 ±0.05, 6.437 0.04
+        例如: 0.352 ±0.025, 10.50 ±0.05
         返回: (nom, upper_tol, lower_tol, measure_type, description)
         """
         # 首先检查是否有 ± 符号连接的格式
@@ -386,7 +424,7 @@ class PDFExtractor:
             if match:
                 nom = match.group(1)
                 tol = match.group(2)
-                return (nom, f'+{tol}', f'-{tol}', '尺寸公差', '')
+                return (nom, f'+{tol}', f'-{tol}', '厚度/距离', '')
 
         # 分类文本
         tolerances = []  # 公差值 (小数, 通常 < 0.5)
@@ -396,7 +434,7 @@ class PDFExtractor:
             text = item['text']
 
             # 跳过标记
-            if text in ['FAI', 'SPC', '100%', 'MAX', 'MIN', 'R', 'A', 'B', 'C', '//', 'TYP']:
+            if text.upper() in ['FAI', 'SPC', '100%', 'MAX', 'MIN', 'R', 'A', 'B', 'C', '//', 'TYP']:
                 continue
 
             # 匹配带±的公差
@@ -431,19 +469,17 @@ class PDFExtractor:
                 nom_x, nom_y = nom['x'], nom['y']
 
                 # 计算相对位置
-                dx = tol_x - nom_x  # 公差在标准值右边时 dx > 0
+                dx = tol_x - nom_x
                 dy = abs(tol_y - nom_y)
 
-                # 条件: 同一水平线 (dy < 30)，水平距离合理 (5 < dx < 250)
-                # 公差通常在标准值右边，但也可能在下方
+                # 条件: 同一水平线或垂直相邻
                 horizontal_match = (abs(dx) < 250 and dy < 30)
                 vertical_match = (abs(dx) < 50 and 0 < dy < 40)
 
                 if horizontal_match or vertical_match:
-                    # 计算得分: 优先选择离FAI近且对齐的
                     score = tol['dist'] + nom['dist'] + dy * 3
 
-                    # 标准值应该比公差大 (额外奖励)
+                    # 标准值应该比公差大
                     if nom['value'] > tol['value']:
                         score -= 30
 
@@ -455,13 +491,13 @@ class PDFExtractor:
             nom_item, tol_item = best_pair
             nom_val = nom_item['text']
             tol_val = tol_item['text'].replace('±', '')
-            return (nom_val, f'+{tol_val}', f'-{tol_val}', '尺寸公差', '')
+            return (nom_val, f'+{tol_val}', f'-{tol_val}', '厚度/距离', '')
 
         # 备选: 只找到标准值
         if nominals:
             best_nom = min(nominals, key=lambda x: x['dist'])
             if best_nom['dist'] < 200:
-                return (best_nom['text'], '-', '-', '尺寸公差', '')
+                return (best_nom['text'], '-', '-', '厚度/距离', '')
 
         return None
 
@@ -470,7 +506,7 @@ class PDFExtractor:
         nearby_texts: List[Dict]
     ) -> Optional[Tuple[str, str, str, str, str]]:
         """
-        解析范围公差
+        解析范围公差 - 圆角半径
         格式: R 0.10 MAX / 0.05 MIN 或 0.10 MAX
         返回: (nom, upper_tol, lower_tol, measure_type, description)
         """
@@ -480,8 +516,8 @@ class PDFExtractor:
 
         texts_str = ' '.join([t['text'] for t in nearby_texts[:35]])
 
-        # 检查是否是半径
-        if re.search(r'\bR\b', texts_str):
+        # 检查是否是半径 (R 或 RADII)
+        if re.search(r'\bR\b', texts_str) or 'RADII' in texts_str.upper():
             has_radius = True
 
         # 查找 MAX 值
@@ -507,6 +543,7 @@ class PDFExtractor:
                         break
 
         if max_val or min_val:
+            # 如果有 R 或 RADII，则是圆角半径
             measure_type = '圆角半径' if has_radius else '范围公差'
             description = ''
 
@@ -525,8 +562,8 @@ class PDFExtractor:
         nearby_texts: List[Dict]
     ) -> Optional[Tuple[str, str, str, str, str]]:
         """
-        解析独立几何公差值
-        格式: 单独的 0.03 等小数值，通常是平面度/平行度等
+        解析独立几何公差值（没有明确符号时的备用）
+        格式: 单独的 0.03 等小数值
         返回: (nom, upper_tol, lower_tol, measure_type, description)
         """
         # 查找几何公差值 (0.0x 格式)
@@ -548,7 +585,7 @@ class PDFExtractor:
                 measure_type = '几何公差'
                 description = ''
                 if datum:
-                    description = f'to Datum {datum}'
+                    description = f'基准 {datum}'
 
                 return ('0', tol_val, '0', measure_type, description)
 
@@ -584,6 +621,8 @@ class PDFExtractor:
             score += 2
         if data.spc:
             score += 1
+        if data.measure_type and data.measure_type != '未识别':
+            score += 2
         if data.description:
             score += 1
         return score
@@ -595,7 +634,7 @@ def extract_fai(pdf_path: str, search_radius: int = 500) -> List[dict]:
 
     Args:
         pdf_path: PDF文件路径
-        search_radius: 搜索半径 (默认500像素，增大以匹配更远的标注)
+        search_radius: 搜索半径 (默认500像素)
 
     Returns:
         FAI数据字典列表
