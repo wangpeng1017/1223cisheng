@@ -12,7 +12,8 @@ import {
   Database,
   Briefcase,
   AlertTriangle,
-  ClipboardList
+  ClipboardList,
+  Table2
 } from "lucide-react"
 
 import {
@@ -47,6 +48,11 @@ const data = {
           title: "图纸评审",
           url: "/drawing-review",
           icon: FileSearch,
+        },
+        {
+          title: "图纸信息提取",
+          url: "/drawing-extract",
+          icon: Table2,
         },
       ],
     },
