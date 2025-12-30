@@ -12,7 +12,8 @@ import {
     Loader2,
     CheckCircle,
     AlertCircle,
-    FileText
+    FileText,
+    ChevronDown
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +34,12 @@ import {
     DialogTitle,
     DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 
 // API 基础URL - 生产环境需要修改
@@ -56,6 +63,37 @@ interface ExtractionHistory {
     upload_time: string
     created_by: string | null
     item_count: number
+}
+
+// 解析备选项
+function parseAlternatives(description: string | null): { distance: string; alternatives: { type: string; dist: string }[] } {
+    if (!description) return { distance: '', alternatives: [] }
+
+    const distMatch = description.match(/距离:(\d+)/)
+    const distance = distMatch ? distMatch[1] : ''
+
+    const altMatch = description.match(/备选:(.+)$/)
+    if (!altMatch) return { distance, alternatives: [] }
+
+    const altStr = altMatch[1]
+    const alternatives: { type: string; dist: string }[] = []
+    const regex = /([^,()]+)\((\d+)\)/g
+    let match
+    while ((match = regex.exec(altStr)) !== null) {
+        alternatives.push({ type: match[1].trim(), dist: match[2] })
+    }
+
+    return { distance, alternatives }
+}
+
+// 测量类型对应的符号
+const typeSymbolMap: Record<string, string> = {
+    '线轮廓度': '⌒',
+    '平面度': '▱',
+    '平行度': '//',
+    '圆角半径': 'R',
+    '厚度/距离': '±',
+    '未识别': '-'
 }
 
 export default function DrawingExtractPage() {
@@ -215,6 +253,21 @@ export default function DrawingExtractPage() {
         a.click()
         URL.revokeObjectURL(url)
         toast.success("CSV导出成功")
+    }
+
+    // 更新测量类型
+    const updateMeasureType = (index: number, newType: string) => {
+        setFaiData(prev => prev.map((item, i) => {
+            if (i === index) {
+                return {
+                    ...item,
+                    measure_type: newType,
+                    symbol: typeSymbolMap[newType] || item.symbol
+                }
+            }
+            return item
+        }))
+        toast.success(`FAI ${faiData[index].fai_num} 测量类型已更新为 ${newType}`)
     }
 
     return (
@@ -380,31 +433,68 @@ export default function DrawingExtractPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {faiData.map((item, index) => (
-                                                <TableRow key={index} className="hover:bg-slate-50/50">
-                                                    <TableCell className="font-bold text-primary">{item.fai_num}</TableCell>
-                                                    <TableCell>
-                                                        {item.spc ? (
-                                                            <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
-                                                                {item.spc}
-                                                            </Badge>
-                                                        ) : '-'}
-                                                    </TableCell>
-                                                    <TableCell className="font-mono">{item.nom || '-'}</TableCell>
-                                                    <TableCell className="font-mono text-emerald-600">{item.upper_tol || '-'}</TableCell>
-                                                    <TableCell className="font-mono text-rose-600">{item.lower_tol || '-'}</TableCell>
-                                                    <TableCell className="font-mono text-lg text-amber-600 font-bold">{item.symbol || '-'}</TableCell>
-                                                    <TableCell>
-                                                        {item.measure_type ? (
-                                                            <Badge variant="secondary" className="bg-purple-50 text-purple-600 border-purple-200">
-                                                                {item.measure_type}
-                                                            </Badge>
-                                                        ) : '-'}
-                                                    </TableCell>
-                                                    <TableCell className="text-slate-500">{item.description || '-'}</TableCell>
-                                                    <TableCell className="text-slate-400">{item.page || '-'}</TableCell>
-                                                </TableRow>
-                                            ))}
+                                            {faiData.map((item, index) => {
+                                                const { distance, alternatives } = parseAlternatives(item.description)
+                                                const hasAlternatives = alternatives.length > 0
+
+                                                return (
+                                                    <TableRow key={index} className="hover:bg-slate-50/50">
+                                                        <TableCell className="font-bold text-primary">{item.fai_num}</TableCell>
+                                                        <TableCell>
+                                                            {item.spc ? (
+                                                                <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
+                                                                    {item.spc}
+                                                                </Badge>
+                                                            ) : '-'}
+                                                        </TableCell>
+                                                        <TableCell className="font-mono">{item.nom || '-'}</TableCell>
+                                                        <TableCell className="font-mono text-emerald-600">{item.upper_tol || '-'}</TableCell>
+                                                        <TableCell className="font-mono text-rose-600">{item.lower_tol || '-'}</TableCell>
+                                                        <TableCell className="font-mono text-lg text-amber-600 font-bold">{item.symbol || '-'}</TableCell>
+                                                        <TableCell>
+                                                            {hasAlternatives ? (
+                                                                <DropdownMenu>
+                                                                    <DropdownMenuTrigger asChild>
+                                                                        <Button
+                                                                            variant="outline"
+                                                                            size="sm"
+                                                                            className="h-7 gap-1 bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100"
+                                                                        >
+                                                                            {item.measure_type}
+                                                                            <ChevronDown className="h-3 w-3" />
+                                                                        </Button>
+                                                                    </DropdownMenuTrigger>
+                                                                    <DropdownMenuContent align="start">
+                                                                        <DropdownMenuItem
+                                                                            onClick={() => updateMeasureType(index, item.measure_type || '')}
+                                                                            className="text-purple-600 font-medium"
+                                                                        >
+                                                                            ✓ {item.measure_type} (距离:{distance})
+                                                                        </DropdownMenuItem>
+                                                                        {alternatives.map((alt, altIdx) => (
+                                                                            <DropdownMenuItem
+                                                                                key={altIdx}
+                                                                                onClick={() => updateMeasureType(index, alt.type)}
+                                                                                className="text-slate-600"
+                                                                            >
+                                                                                {alt.type} (距离:{alt.dist})
+                                                                            </DropdownMenuItem>
+                                                                        ))}
+                                                                    </DropdownMenuContent>
+                                                                </DropdownMenu>
+                                                            ) : item.measure_type ? (
+                                                                <Badge variant="secondary" className="bg-purple-50 text-purple-600 border-purple-200">
+                                                                    {item.measure_type}
+                                                                </Badge>
+                                                            ) : '-'}
+                                                        </TableCell>
+                                                        <TableCell className="text-slate-500 text-xs max-w-[200px] truncate" title={item.description || ''}>
+                                                            {distance ? `距离:${distance}` : (item.description || '-')}
+                                                        </TableCell>
+                                                        <TableCell className="text-slate-400">{item.page || '-'}</TableCell>
+                                                    </TableRow>
+                                                )
+                                            })}
                                         </TableBody>
                                     </Table>
                                 </div>
