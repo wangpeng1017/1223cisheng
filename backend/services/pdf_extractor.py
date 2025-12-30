@@ -24,14 +24,12 @@ class FAIData:
     nom: Optional[str]
     upper_tol: Optional[str]
     lower_tol: Optional[str]
+    measure_type: str  # 测量类型：尺寸公差/平面度/平行度/圆角半径等
     description: str
     page: int
-    tol_type: str = "dimensional"  # dimensional, geometric, range
 
     def to_dict(self) -> dict:
-        d = asdict(self)
-        d.pop('tol_type', None)
-        return d
+        return asdict(self)
 
 
 class PDFExtractor:
@@ -198,7 +196,7 @@ class PDFExtractor:
                 result = geo_result
 
         if result:
-            nom, upper_tol, lower_tol, tol_description = result
+            nom, upper_tol, lower_tol, measure_type, tol_description = result
             # 合并描述
             full_description = tol_description
             if description_texts:
@@ -213,6 +211,7 @@ class PDFExtractor:
                 nom=nom,
                 upper_tol=upper_tol,
                 lower_tol=lower_tol,
+                measure_type=measure_type,
                 description=full_description,
                 page=page
             )
@@ -223,6 +222,7 @@ class PDFExtractor:
             nom='-',
             upper_tol='-',
             lower_tol='-',
+            measure_type='未识别',
             description=description_texts or '',
             page=page
         )
@@ -307,33 +307,34 @@ class PDFExtractor:
     def _parse_gdt_frame(
         self,
         nearby_texts: List[Dict]
-    ) -> Optional[Tuple[str, str, str, str]]:
+    ) -> Optional[Tuple[str, str, str, str, str]]:
         """
         解析几何公差框
         格式: // | 0.03 | A (平行度)
               ▱ | 0.03 (平面度)
+        返回: (nom, upper_tol, lower_tol, measure_type, description)
         """
         texts = [t['text'] for t in nearby_texts[:30]]
 
         # 查找几何公差符号
         gdt_symbol = None
-        gdt_type = None
+        measure_type = None
 
         for i, text in enumerate(texts):
             # 检查平行度符号
             if text == '//' or '//' in text:
                 gdt_symbol = '//'
-                gdt_type = '平行度 (Parallelism)'
+                measure_type = '平行度'
                 break
             # 检查平面度符号 (各种Unicode表示)
             if text in ['▱', '⏥', '◇', '◊'] or '平面' in text:
                 gdt_symbol = '▱'
-                gdt_type = '平面度 (Flatness)'
+                measure_type = '平面度'
                 break
             # 检查垂直度符号
             if text == '⊥' or '⊥' in text:
                 gdt_symbol = '⊥'
-                gdt_type = '垂直度 (Perpendicularity)'
+                measure_type = '垂直度'
                 break
 
         if not gdt_symbol:
@@ -357,11 +358,11 @@ class PDFExtractor:
                     datum = text
 
         if tol_value:
-            description = gdt_type
+            description = f'{measure_type} (GD&T)'
             if datum:
-                description = f"{gdt_type} to {datum}"
+                description = f'to Datum {datum}'
 
-            return ('0', tol_value, '0', description)
+            return ('0', tol_value, '0', measure_type, description)
 
         return None
 
@@ -370,11 +371,12 @@ class PDFExtractor:
         nearby_texts: List[Dict],
         fai_x: float,
         fai_y: float
-    ) -> Optional[Tuple[str, str, str, str]]:
+    ) -> Optional[Tuple[str, str, str, str, str]]:
         """
         解析尺寸公差
         格式: 标准值 ±公差 或 标准值 公差
         例如: 0.352 ±0.025, 10.50 ±0.05, 6.437 0.04
+        返回: (nom, upper_tol, lower_tol, measure_type, description)
         """
         # 首先检查是否有 ± 符号连接的格式
         for item in nearby_texts[:30]:
@@ -384,7 +386,7 @@ class PDFExtractor:
             if match:
                 nom = match.group(1)
                 tol = match.group(2)
-                return (nom, f'+{tol}', f'-{tol}', '')
+                return (nom, f'+{tol}', f'-{tol}', '尺寸公差', '')
 
         # 分类文本
         tolerances = []  # 公差值 (小数, 通常 < 0.5)
@@ -453,23 +455,24 @@ class PDFExtractor:
             nom_item, tol_item = best_pair
             nom_val = nom_item['text']
             tol_val = tol_item['text'].replace('±', '')
-            return (nom_val, f'+{tol_val}', f'-{tol_val}', '')
+            return (nom_val, f'+{tol_val}', f'-{tol_val}', '尺寸公差', '')
 
         # 备选: 只找到标准值
         if nominals:
             best_nom = min(nominals, key=lambda x: x['dist'])
             if best_nom['dist'] < 200:
-                return (best_nom['text'], '-', '-', '')
+                return (best_nom['text'], '-', '-', '尺寸公差', '')
 
         return None
 
     def _parse_range_tolerance(
         self,
         nearby_texts: List[Dict]
-    ) -> Optional[Tuple[str, str, str, str]]:
+    ) -> Optional[Tuple[str, str, str, str, str]]:
         """
         解析范围公差
         格式: R 0.10 MAX / 0.05 MIN 或 0.10 MAX
+        返回: (nom, upper_tol, lower_tol, measure_type, description)
         """
         max_val = None
         min_val = None
@@ -504,12 +507,14 @@ class PDFExtractor:
                         break
 
         if max_val or min_val:
-            description = '圆角半径 (Radius)' if has_radius else '范围公差'
+            measure_type = '圆角半径' if has_radius else '范围公差'
+            description = ''
 
             return (
                 '-',
                 f'{max_val} MAX' if max_val else '-',
                 f'{min_val} MIN' if min_val else '-',
+                measure_type,
                 description
             )
 
@@ -518,10 +523,11 @@ class PDFExtractor:
     def _parse_geometric_tolerance(
         self,
         nearby_texts: List[Dict]
-    ) -> Optional[Tuple[str, str, str, str]]:
+    ) -> Optional[Tuple[str, str, str, str, str]]:
         """
         解析独立几何公差值
         格式: 单独的 0.03 等小数值，通常是平面度/平行度等
+        返回: (nom, upper_tol, lower_tol, measure_type, description)
         """
         # 查找几何公差值 (0.0x 格式)
         for item in nearby_texts[:20]:
@@ -539,11 +545,12 @@ class PDFExtractor:
                             datum = j_item['text']
                             break
 
-                description = '几何公差'
+                measure_type = '几何公差'
+                description = ''
                 if datum:
-                    description = f'几何公差 @ 基准 {datum}'
+                    description = f'to Datum {datum}'
 
-                return ('0', tol_val, '0', description)
+                return ('0', tol_val, '0', measure_type, description)
 
         return None
 

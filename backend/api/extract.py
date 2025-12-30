@@ -26,6 +26,7 @@ class FAIItemResponse(BaseModel):
     nom: Optional[str]
     upper_tol: Optional[str]
     lower_tol: Optional[str]
+    measure_type: Optional[str]
     description: Optional[str]
     page: Optional[int]
 
@@ -115,6 +116,7 @@ async def extract_pdf(
                 nom=item.get('nom'),
                 upper_tol=item.get('upper_tol'),
                 lower_tol=item.get('lower_tol'),
+                measure_type=item.get('measure_type'),
                 description=item.get('description', ''),
                 page=item.get('page')
             )

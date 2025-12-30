@@ -44,6 +44,7 @@ interface FAIItem {
     nom: string | null
     upper_tol: string | null
     lower_tol: string | null
+    measure_type: string | null
     description: string | null
     page: number | null
 }
@@ -191,13 +192,14 @@ export default function DrawingExtractPage() {
     const exportCSV = () => {
         if (faiData.length === 0) return
 
-        const headers = ["FAI编号", "SPC编号", "标准值(NOM)", "上公差", "下公差", "尺寸描述", "页码"]
+        const headers = ["FAI编号", "SPC编号", "标准值(NOM)", "上公差", "下公差", "测量类型", "尺寸描述", "页码"]
         const rows = faiData.map(item => [
             item.fai_num,
             item.spc || '-',
             item.nom || '-',
             item.upper_tol || '-',
             item.lower_tol || '-',
+            item.measure_type || '-',
             item.description || '-',
             item.page || '-'
         ])
@@ -369,6 +371,7 @@ export default function DrawingExtractPage() {
                                                 <TableHead className="font-bold">标准值(NOM)</TableHead>
                                                 <TableHead className="font-bold">上公差</TableHead>
                                                 <TableHead className="font-bold">下公差</TableHead>
+                                                <TableHead className="w-[100px] font-bold">测量类型</TableHead>
                                                 <TableHead className="font-bold">尺寸描述</TableHead>
                                                 <TableHead className="w-[60px] font-bold">页码</TableHead>
                                             </TableRow>
@@ -387,6 +390,13 @@ export default function DrawingExtractPage() {
                                                     <TableCell className="font-mono">{item.nom || '-'}</TableCell>
                                                     <TableCell className="font-mono text-emerald-600">{item.upper_tol || '-'}</TableCell>
                                                     <TableCell className="font-mono text-rose-600">{item.lower_tol || '-'}</TableCell>
+                                                    <TableCell>
+                                                        {item.measure_type ? (
+                                                            <Badge variant="secondary" className="bg-purple-50 text-purple-600 border-purple-200">
+                                                                {item.measure_type}
+                                                            </Badge>
+                                                        ) : '-'}
+                                                    </TableCell>
                                                     <TableCell className="text-slate-500">{item.description || '-'}</TableCell>
                                                     <TableCell className="text-slate-400">{item.page || '-'}</TableCell>
                                                 </TableRow>
