@@ -73,6 +73,11 @@ class PDFExtractorV3:
             'color_l': '颜色(L)',
             'color_a': '颜色(a)',
             'color_b': '颜色(b)',
+            # 镀层规格
+            'plating_top': '顶层镀层(NiP)',
+            'plating_base': '底层镀层(Cu)',
+            'plating_thickness': '镀层厚度',
+            'magnet_thickness': '磁体厚度',
             # 工艺要求
             'visual_inspection': '外观检验',
             'salt_spray': '盐雾测试',
@@ -179,6 +184,9 @@ class PDFExtractorV3:
 
         # 表面处理类
         blocks.extend(self._find_surface_blocks(text_lines))
+
+        # 镀层规格类
+        blocks.extend(self._find_plating_blocks(text_lines))
 
         return blocks
 
@@ -547,6 +555,66 @@ class PDFExtractorV3:
 
         return blocks
 
+    def _find_plating_blocks(self, text_lines: List[Dict]) -> List[DataBlock]:
+        """识别镀层规格数据块（PLATING SPECIFICATIONS）"""
+        blocks = []
+
+        # 镀层规格模式 - 按行匹配
+        # (关键词用于定位, 数据正则, 类型, 符号)
+        plating_patterns = [
+            ('TOP LAYER', r'TOP\s*LAYER.*?([\d.]+)\s*[-–]\s*([\d.]+)', 'plating_top', 'NiP'),
+            ('BASE LAYER', r'BASE\s*LAYER.*?([\d.]+)\s*[-–]\s*([\d.]+)', 'plating_base', 'Cu'),
+            ('PLATING THICKNESS', r'PLATING\s*THICKNESS.*?([\d.]+)\s*[-–]\s*([\d.]+)', 'plating_thickness', '±'),
+            ('BARE MAGNET', r'BARE\s*MAGNET\s*THICKNESS\s+([\d]+\.[\d]+)\s*[±]?\s*([\d.]+)', 'magnet_thickness', '±'),
+        ]
+
+        for line in text_lines:
+            text = line['text']
+            words = line.get('words', [])
+
+            for keyword, pattern, block_type, symbol in plating_patterns:
+                match = re.search(pattern, text, re.IGNORECASE)
+                if not match:
+                    continue
+
+                val1 = match.group(1)
+                val2 = match.group(2)
+
+                # 定位关键词在行中的位置
+                cx = line['x_start']  # 默认使用行起点
+                for w in words:
+                    if keyword.split()[0].upper() in w['text'].upper():
+                        cx = w['x0']
+                        break
+                cy = line['y']
+
+                # 判断是范围格式还是公差格式
+                if block_type == 'magnet_thickness':
+                    nom = val1
+                    upper_tol = f'+{val2}'
+                    lower_tol = f'-{val2}'
+                else:
+                    min_val = float(val1)
+                    max_val = float(val2)
+                    nom = f'{min_val:.2f}-{max_val:.2f}'
+                    upper_tol = f'{max_val:.2f} MAX'
+                    lower_tol = f'{min_val:.2f} MIN'
+
+                block = DataBlock(
+                    block_type=block_type,
+                    center_x=cx,
+                    center_y=cy,
+                    symbol=symbol,
+                    nom=nom,
+                    upper_tol=upper_tol,
+                    lower_tol=lower_tol,
+                    description=text[:50]
+                )
+                blocks.append(block)
+                break
+
+        return blocks
+
     def _find_all_fai(self, words: List[Dict]) -> Dict[int, Dict]:
         """查找所有FAI标注 - 改进版：选择最近的数字"""
         fai_positions = {}
@@ -625,9 +693,19 @@ class PDFExtractorV3:
         # 方法1：匹配数据块
         candidates = []
         for block in data_blocks:
-            dist = ((block.center_x - fai_x)**2 + (block.center_y - fai_y)**2)**0.5
             y_diff = abs(block.center_y - fai_y)
-            priority = 0 if y_diff < 50 else 1
+            x_diff = abs(block.center_x - fai_x)
+
+            # 对镀层类型使用Y坐标优先的加权距离（表格数据按行排列）
+            if block.block_type.startswith('plating_') or block.block_type == 'magnet_thickness':
+                # Y坐标权重更高，适合表格行匹配
+                dist = x_diff + 3 * y_diff
+                priority = 0 if y_diff < 20 else 1
+            else:
+                # 标准欧式距离
+                dist = ((x_diff)**2 + (y_diff)**2)**0.5
+                priority = 0 if y_diff < 50 else 1
+
             if dist < 600:
                 candidates.append((block, dist, priority))
 
