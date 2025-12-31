@@ -45,6 +45,17 @@ import { toast } from "sonner"
 // API 基础URL - 生产环境需要修改
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001"
 
+interface Alternative {
+    nom: string | null
+    upper_tol: string | null
+    lower_tol: string | null
+    symbol: string | null
+    measure_type: string
+    category: string
+    distance: number
+    description: string | null
+}
+
 interface FAIItem {
     fai_num: number
     spc: string | null
@@ -55,6 +66,8 @@ interface FAIItem {
     measure_type: string | null
     description: string | null
     page: number | null
+    category: string | null
+    alternatives?: Alternative[]  // 备选数据块列表
 }
 
 interface ExtractionHistory {
@@ -87,13 +100,40 @@ function parseAlternatives(description: string | null): { distance: string; alte
 }
 
 // 测量类型对应的符号
+// 测量类型对应的符号和颜色
 const typeSymbolMap: Record<string, string> = {
+    // 几何尺寸
     '线轮廓度': '⌒',
     '平面度': '▱',
     '平行度': '//',
     '圆角半径': 'R',
     '厚度/距离': '±',
+    // 材料性能
+    '磁通密度(Br)': 'Br',
+    '矫顽力(Hcb)': 'Hcb',
+    '矫顽力(Hcj)': 'Hcj',
+    '最大能积(BHmax)': 'BH',
+    '硬度': 'HV',
+    // 表面处理
+    '光泽度': 'GU',
+    '粗糙度(Ra)': 'Ra',
+    '颜色(L)': 'L*',
+    '颜色(a)': 'a*',
+    '颜色(b)': 'b*',
+    // 工艺要求
+    '外观检验': '👁',
+    '盐雾测试': '🧪',
+    '文本规格': '📝',
     '未识别': '-'
+}
+
+// 分类对应的颜色
+const categoryColorMap: Record<string, { bg: string; text: string; border: string }> = {
+    '几何尺寸': { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' },
+    '材料性能': { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200' },
+    '表面处理': { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
+    '工艺要求': { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200' },
+    '未分类': { bg: 'bg-slate-50', text: 'text-slate-500', border: 'border-slate-200' },
 }
 
 export default function DrawingExtractPage() {
@@ -231,10 +271,11 @@ export default function DrawingExtractPage() {
     const exportCSV = () => {
         if (faiData.length === 0) return
 
-        const headers = ["FAI编号", "SPC编号", "标准值(NOM)", "上公差", "下公差", "符号", "测量类型", "尺寸描述", "页码"]
+        const headers = ["FAI编号", "SPC编号", "分类", "标准值(NOM)", "上公差", "下公差", "符号", "测量类型", "尺寸描述", "页码"]
         const rows = faiData.map(item => [
             item.fai_num,
             item.spc || '-',
+            item.category || '-',
             item.nom || '-',
             item.upper_tol || '-',
             item.lower_tol || '-',
@@ -255,19 +296,23 @@ export default function DrawingExtractPage() {
         toast.success("CSV导出成功")
     }
 
-    // 更新测量类型
-    const updateMeasureType = (index: number, newType: string) => {
+    // 切换到备选数据块（完整替换所有字段）
+    const switchToAlternative = (index: number, alt: Alternative) => {
         setFaiData(prev => prev.map((item, i) => {
             if (i === index) {
                 return {
                     ...item,
-                    measure_type: newType,
-                    symbol: typeSymbolMap[newType] || item.symbol
+                    nom: alt.nom,
+                    upper_tol: alt.upper_tol,
+                    lower_tol: alt.lower_tol,
+                    symbol: alt.symbol,
+                    measure_type: alt.measure_type,
+                    category: alt.category
                 }
             }
             return item
         }))
-        toast.success(`FAI ${faiData[index].fai_num} 测量类型已更新为 ${newType}`)
+        toast.success(`FAI ${faiData[index].fai_num} 已切换为 ${alt.measure_type}`)
     }
 
     return (
@@ -423,6 +468,7 @@ export default function DrawingExtractPage() {
                                             <TableRow>
                                                 <TableHead className="w-[80px] font-bold">FAI编号</TableHead>
                                                 <TableHead className="w-[80px] font-bold">SPC编号</TableHead>
+                                                <TableHead className="w-[90px] font-bold">分类</TableHead>
                                                 <TableHead className="font-bold">标准值(NOM)</TableHead>
                                                 <TableHead className="font-bold">上公差</TableHead>
                                                 <TableHead className="font-bold">下公差</TableHead>
@@ -434,8 +480,7 @@ export default function DrawingExtractPage() {
                                         </TableHeader>
                                         <TableBody>
                                             {faiData.map((item, index) => {
-                                                const { distance, alternatives } = parseAlternatives(item.description)
-                                                const hasAlternatives = alternatives.length > 0
+                                                const { distance } = parseAlternatives(item.description)
 
                                                 return (
                                                     <TableRow key={index} className="hover:bg-slate-50/50">
@@ -447,12 +492,28 @@ export default function DrawingExtractPage() {
                                                                 </Badge>
                                                             ) : '-'}
                                                         </TableCell>
+                                                        <TableCell>
+                                                            {item.category ? (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={
+                                                                        item.category === '几何尺寸' ? 'bg-blue-50 text-blue-600 border-blue-200' :
+                                                                        item.category === '材料性能' ? 'bg-amber-50 text-amber-600 border-amber-200' :
+                                                                        item.category === '表面处理' ? 'bg-green-50 text-green-600 border-green-200' :
+                                                                        item.category === '工艺要求' ? 'bg-purple-50 text-purple-600 border-purple-200' :
+                                                                        'bg-slate-50 text-slate-500 border-slate-200'
+                                                                    }
+                                                                >
+                                                                    {item.category}
+                                                                </Badge>
+                                                            ) : '-'}
+                                                        </TableCell>
                                                         <TableCell className="font-mono">{item.nom || '-'}</TableCell>
                                                         <TableCell className="font-mono text-emerald-600">{item.upper_tol || '-'}</TableCell>
                                                         <TableCell className="font-mono text-rose-600">{item.lower_tol || '-'}</TableCell>
                                                         <TableCell className="font-mono text-lg text-amber-600 font-bold">{item.symbol || '-'}</TableCell>
                                                         <TableCell>
-                                                            {hasAlternatives ? (
+                                                            {item.alternatives && item.alternatives.length > 0 ? (
                                                                 <DropdownMenu>
                                                                     <DropdownMenuTrigger asChild>
                                                                         <Button
@@ -465,19 +526,16 @@ export default function DrawingExtractPage() {
                                                                         </Button>
                                                                     </DropdownMenuTrigger>
                                                                     <DropdownMenuContent align="start">
-                                                                        <DropdownMenuItem
-                                                                            onClick={() => updateMeasureType(index, item.measure_type || '')}
-                                                                            className="text-purple-600 font-medium"
-                                                                        >
-                                                                            ✓ {item.measure_type} (距离:{distance})
+                                                                        <DropdownMenuItem className="text-purple-600 font-medium cursor-default">
+                                                                            ✓ {item.measure_type} (当前)
                                                                         </DropdownMenuItem>
-                                                                        {alternatives.map((alt, altIdx) => (
+                                                                        {item.alternatives.map((alt, altIdx) => (
                                                                             <DropdownMenuItem
                                                                                 key={altIdx}
-                                                                                onClick={() => updateMeasureType(index, alt.type)}
+                                                                                onClick={() => switchToAlternative(index, alt)}
                                                                                 className="text-slate-600"
                                                                             >
-                                                                                {alt.type} (距离:{alt.dist})
+                                                                                {alt.measure_type} (距离:{alt.distance})
                                                                             </DropdownMenuItem>
                                                                         ))}
                                                                     </DropdownMenuContent>

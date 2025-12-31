@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-@file pdf_extractor_v2.py
-@desc PDF图纸FAI提取 - 数据块识别版
-@strategy 先识别数据块，再匹配FAI
+@file pdf_extractor.py
+@desc PDF图纸FAI提取 - V3 增强版
+@strategy 先识别数据块（几何尺寸+材料参数+表面参数），再匹配FAI
+@version 3.0
 """
 
 import pdfplumber
@@ -14,14 +15,15 @@ from dataclasses import dataclass, asdict
 @dataclass
 class DataBlock:
     """测量数据块"""
-    block_type: str       # 类型：radius/dimensional/geometric/profile
+    block_type: str       # 类型
     center_x: float       # 块中心X
     center_y: float       # 块中心Y
     symbol: str           # 符号
     nom: str              # 标准值
-    upper_tol: str        # 上公差
-    lower_tol: str        # 下公差
+    upper_tol: str        # 上公差/上限
+    lower_tol: str        # 下公差/下限
     description: str      # 描述
+    unit: str = ''        # 单位
 
 
 @dataclass
@@ -36,22 +38,70 @@ class FAIData:
     measure_type: str
     description: str
     page: int
+    category: str = '几何尺寸'
+    alternatives: Optional[List[Dict]] = None  # 备选数据块列表
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        # alternatives 默认为 None 时转为空列表
+        if d.get('alternatives') is None:
+            d['alternatives'] = []
+        return d
 
 
-class PDFExtractorV2:
-    """PDF FAI提取器 - 数据块识别版"""
+class PDFExtractorV3:
+    """PDF FAI提取器 - V3 增强版"""
 
     def __init__(self):
+        # 测量类型映射
         self.measure_type_map = {
+            # 几何尺寸
             'radius': '圆角半径',
             'dimensional': '厚度/距离',
             'geometric_flatness': '平面度',
             'geometric_parallel': '平行度',
             'profile': '线轮廓度',
+            # 材料性能
+            'magnetic_br': '磁通密度(Br)',
+            'magnetic_hcb': '矫顽力(Hcb)',
+            'magnetic_hcj': '矫顽力(Hcj)',
+            'magnetic_bhmax': '最大能积(BHmax)',
+            'hardness': '硬度',
+            # 表面处理
+            'gloss': '光泽度',
+            'roughness': '粗糙度(Ra)',
+            'color_l': '颜色(L)',
+            'color_a': '颜色(a)',
+            'color_b': '颜色(b)',
+            # 工艺要求
+            'visual_inspection': '外观检验',
+            'salt_spray': '盐雾测试',
+            'plating': '电镀要求',
+            'text_spec': '文本规格',
             'unknown': '未识别'
+        }
+
+        # 分类映射
+        self.category_map = {
+            'radius': '几何尺寸',
+            'dimensional': '几何尺寸',
+            'geometric_flatness': '几何尺寸',
+            'geometric_parallel': '几何尺寸',
+            'profile': '几何尺寸',
+            'magnetic_br': '材料性能',
+            'magnetic_hcb': '材料性能',
+            'magnetic_hcj': '材料性能',
+            'magnetic_bhmax': '材料性能',
+            'hardness': '材料性能',
+            'gloss': '表面处理',
+            'roughness': '表面处理',
+            'color_l': '表面处理',
+            'color_a': '表面处理',
+            'color_b': '表面处理',
+            'visual_inspection': '工艺要求',
+            'salt_spray': '工艺要求',
+            'plating': '工艺要求',
+            'text_spec': '工艺要求',
         }
 
     def extract_fai_from_pdf(self, pdf_path: str) -> List[FAIData]:
@@ -66,8 +116,11 @@ class PDFExtractorV2:
                     y_tolerance=3
                 )
 
+                # 构建文本行索引
+                text_lines = self._build_text_lines(words)
+
                 # 第一步：识别所有数据块
-                data_blocks = self._identify_data_blocks(words)
+                data_blocks = self._identify_data_blocks(words, text_lines)
 
                 # 第二步：找所有FAI位置
                 fai_positions = self._find_all_fai(words)
@@ -75,35 +128,62 @@ class PDFExtractorV2:
                 # 第三步：找所有SPC位置
                 spc_positions = self._find_all_spc(words)
 
-                # 第四步：匹配FAI到最近的数据块
+                # 第四步：匹配FAI到最近的数据块或文本行
                 for fai_num, fai_info in fai_positions.items():
                     fai_data = self._match_fai_to_block(
-                        fai_info, fai_num, data_blocks, spc_positions, page_num + 1
+                        fai_info, fai_num, data_blocks, text_lines,
+                        spc_positions, page_num + 1
                     )
                     results.append(fai_data)
 
         return self._deduplicate_fai(results)
 
-    def _identify_data_blocks(self, words: List[Dict]) -> List[DataBlock]:
-        """识别所有测量数据块"""
+    def _build_text_lines(self, words: List[Dict]) -> List[Dict]:
+        """构建文本行索引，按Y坐标分组"""
+        if not words:
+            return []
+
+        lines = {}
+        for w in words:
+            y_key = round(w['top'] / 10) * 10
+            if y_key not in lines:
+                lines[y_key] = []
+            lines[y_key].append(w)
+
+        result = []
+        for y_key in sorted(lines.keys()):
+            line_words = sorted(lines[y_key], key=lambda x: x['x0'])
+            full_text = ' '.join(w['text'].strip() for w in line_words)
+            result.append({
+                'y': y_key,
+                'x_start': line_words[0]['x0'],
+                'x_end': line_words[-1]['x1'],
+                'text': full_text,
+                'words': line_words
+            })
+
+        return result
+
+    def _identify_data_blocks(self, words: List[Dict], text_lines: List[Dict]) -> List[DataBlock]:
+        """识别所有数据块"""
         blocks = []
 
-        # 1. 识别圆角半径块 (R + MAX/MIN 紧密聚合)
+        # 几何尺寸类
         blocks.extend(self._find_radius_blocks(words))
-
-        # 2. 识别尺寸公差块 (标准值 + 公差配对)
         blocks.extend(self._find_dimensional_blocks(words))
-
-        # 3. 识别几何公差块 (0.0x + 基准)
         blocks.extend(self._find_geometric_blocks(words))
-
-        # 4. 识别线轮廓度块 (ALL AROUND)
         blocks.extend(self._find_profile_blocks(words))
+
+        # 材料性能类
+        blocks.extend(self._find_material_blocks(text_lines))
+
+        # 表面处理类
+        blocks.extend(self._find_surface_blocks(text_lines))
 
         return blocks
 
     def _find_radius_blocks(self, words: List[Dict]) -> List[DataBlock]:
-        """识别圆角半径数据块：R + MAX/MIN 紧密聚合"""
+        """识别圆角半径数据块"""
         blocks = []
         used_indices = set()
 
@@ -113,7 +193,6 @@ class PDFExtractorV2:
 
             r_x, r_y = w['x0'], w['top']
 
-            # 在R附近找MAX/MIN（距离R<50）
             max_item = min_item = None
             for j, w2 in enumerate(words):
                 if j in used_indices:
@@ -128,11 +207,9 @@ class PDFExtractorV2:
                 elif re.match(r'^[\d.]+\s*MIN$', text, re.I):
                     min_item = {'text': text, 'x': w2['x0'], 'y': w2['top'], 'idx': j}
 
-            # 必须有MAX或MIN才算圆角半径块
             if not max_item and not min_item:
                 continue
 
-            # 计算块中心
             points = [(r_x, r_y)]
             if max_item:
                 points.append((max_item['x'], max_item['y']))
@@ -145,7 +222,6 @@ class PDFExtractorV2:
             center_x = sum(p[0] for p in points) / len(points)
             center_y = sum(p[1] for p in points) / len(points)
 
-            # 提取值
             max_val = min_val = None
             if max_item:
                 m = re.match(r'^([\d.]+)\s*MAX$', max_item['text'], re.I)
@@ -170,16 +246,14 @@ class PDFExtractorV2:
         return blocks
 
     def _find_dimensional_blocks(self, words: List[Dict]) -> List[DataBlock]:
-        """识别尺寸公差数据块：标准值 + 公差值配对"""
+        """识别尺寸公差数据块"""
         blocks = []
 
-        # 收集所有数值
         values = []
         for i, w in enumerate(words):
             text = w['text'].strip()
             if not re.match(r'^\d+\.?\d*$', text):
                 continue
-            # 排除可能是FAI编号的整数
             if '.' not in text:
                 try:
                     v = int(text)
@@ -196,16 +270,13 @@ class PDFExtractorV2:
             except:
                 pass
 
-        # 找标准值-公差配对
         used_indices = set()
         for nom in values:
             if nom['idx'] in used_indices:
                 continue
-            # 标准值通常 >= 0.1
             if nom['value'] < 0.1:
                 continue
 
-            # 在附近找公差值（<0.5，有2位以上小数）
             for tol in values:
                 if tol['idx'] in used_indices or tol['idx'] == nom['idx']:
                     continue
@@ -214,17 +285,14 @@ class PDFExtractorV2:
                 if '.' not in tol['text'] or len(tol['text'].split('.')[-1]) < 2:
                     continue
 
-                # 检查是否相邻（水平或垂直）
                 dx = abs(nom['x'] - tol['x'])
                 dy = abs(nom['y'] - tol['y'])
                 if not ((dx < 100 and dy < 30) or (dx < 40 and dy < 50)):
                     continue
 
-                # 公差应该比标准值小很多
                 if tol['value'] >= nom['value']:
                     continue
 
-                # 创建数据块
                 center_x = (nom['x'] + tol['x']) / 2
                 center_y = (nom['y'] + tol['y']) / 2
 
@@ -246,19 +314,17 @@ class PDFExtractorV2:
         return blocks
 
     def _find_geometric_blocks(self, words: List[Dict]) -> List[DataBlock]:
-        """识别几何公差数据块：0.0x格式 + 基准字母"""
+        """识别几何公差数据块"""
         blocks = []
 
         for i, w in enumerate(words):
             text = w['text'].strip()
-            # 几何公差通常是 0.0x 格式
             if not re.match(r'^0\.0\d{1,2}$', text):
                 continue
 
             tol_x, tol_y = w['x0'], w['top']
             tol_val = text
 
-            # 在附近找基准字母（A/B/C）
             datum = None
             datum_x = None
             for j, w2 in enumerate(words):
@@ -273,7 +339,6 @@ class PDFExtractorV2:
             if not datum:
                 continue
 
-            # 检查附近是否有标准值配对（如果有，说明是尺寸公差，跳过）
             has_nominal = False
             for j, w2 in enumerate(words):
                 if not re.match(r'^\d+\.\d+$', w2['text'].strip()):
@@ -292,7 +357,6 @@ class PDFExtractorV2:
             if has_nominal:
                 continue
 
-            # 根据基准位置判断类型
             if datum_x < tol_x:
                 block_type = 'geometric_flatness'
                 symbol = '▱'
@@ -316,16 +380,14 @@ class PDFExtractorV2:
         return blocks
 
     def _find_profile_blocks(self, words: List[Dict]) -> List[DataBlock]:
-        """识别线轮廓度数据块：ALL AROUND 关键词"""
+        """识别线轮廓度数据块"""
         blocks = []
 
         for i, w in enumerate(words):
             text = w['text'].strip().upper()
-            # 直接匹配 "ALL AROUND" 或分开的 "ALL" + "AROUND"
             if text == 'ALL AROUND':
                 center_x, center_y = w['x0'], w['top']
 
-                # 找附近的公差值 (0.xx 格式)
                 tol_val = None
                 for w2 in words:
                     if re.match(r'^0\.\d{1,3}$', w2['text'].strip()):
@@ -348,8 +410,145 @@ class PDFExtractorV2:
 
         return blocks
 
+    def _find_material_blocks(self, text_lines: List[Dict]) -> List[DataBlock]:
+        """识别材料性能参数"""
+        blocks = []
+
+        patterns = [
+            (r'(?:RESIDUAL\s+)?(?:MAGNETIC\s+)?FLUX\s*\(?Br\)?\s*[:\s]*'
+             r'([\d.]+)\s*[-–]\s*([\d.]+)\s*(kGs?|T)',
+             'magnetic_br', 'Br'),
+            (r'B-COERCIVITY\s+(?:FORCE\s+)?\(?Hcb\)?\s*[:\s]*'
+             r'([\d.]+)\s*(kOe|kA/m)\s*(MIN)?',
+             'magnetic_hcb', 'Hcb'),
+            (r'J-COERCIVITY\s+(?:FORCE\s+)?\(?Hcj\)?\s*[:\s]*'
+             r'([\d.]+)\s*(kOe|kA/m)\s*(MIN)?',
+             'magnetic_hcj', 'Hcj'),
+            (r'(?:MAX(?:IMUM)?\s+)?ENERGY\s+PRODUCT\s*[:\s]*'
+             r'([\d.]+)\s*[-–]\s*([\d.]+)\s*(MGOe|kJ/m)',
+             'magnetic_bhmax', 'BHmax'),
+            (r'HARDNESS\s*[:\s]*([\d.]+)\s*[-±]?\s*([\d.]+)?\s*(HV|HRC)',
+             'hardness', 'HV'),
+        ]
+
+        for line in text_lines:
+            text = line['text']
+            for pattern, block_type, symbol in patterns:
+                match = re.search(pattern, text, re.I)
+                if match:
+                    groups = match.groups()
+
+                    if block_type == 'hardness':
+                        nom = groups[0]
+                        tol = groups[1] if groups[1] else '0'
+                        unit = groups[2] if len(groups) > 2 else ''
+                        upper = f'{nom}+{tol}' if tol != '0' else nom
+                        lower = f'{nom}-{tol}' if tol != '0' else nom
+                    elif 'MIN' in str(groups):
+                        nom = groups[0]
+                        unit = groups[1] if len(groups) > 1 else ''
+                        upper = '-'
+                        lower = f'{nom} {unit} MIN'
+                    else:
+                        nom = f'{groups[0]} - {groups[1]}'
+                        unit = groups[2] if len(groups) > 2 else ''
+                        upper = groups[1]
+                        lower = groups[0]
+
+                    blocks.append(DataBlock(
+                        block_type=block_type,
+                        center_x=line['x_start'],
+                        center_y=line['y'],
+                        symbol=symbol,
+                        nom=nom,
+                        upper_tol=upper,
+                        lower_tol=lower,
+                        description=text[:50],
+                        unit=unit
+                    ))
+                    break
+
+        return blocks
+
+    def _find_surface_blocks(self, text_lines: List[Dict]) -> List[DataBlock]:
+        """识别表面处理参数"""
+        blocks = []
+
+        patterns = [
+            (r'GLOSS\s*(?:AT\s*60\s*)?[:\s]*([\d.]+)\s*[-–]?\s*([\d.]+)?\s*GU',
+             'gloss', 'GU'),
+            (r'(?:ROUGHNESS\s*[:\s]*)?Ra(?:-[XY])?\s*[/=]\s*(?:Ra-[XY]\s*=\s*)?([\d.]+)',
+             'roughness', 'Ra'),
+            (r'\*?\s*L\s*[:\s]*([\d.]+)\s*[-–]\s*([\d.]+)',
+             'color_l', 'L*'),
+            (r'\*?\s*a\s*[:\s]*([\d.]+)\s*[-–]\s*([\d.]+)',
+             'color_a', 'a*'),
+            # 颜色b: 必须以 * b: 开头，避免匹配 ASTM B117 等标准编号
+            (r'\*\s*b\s*:\s*([\d.]+)\s*[-–]\s*([\d.]+)',
+             'color_b', 'b*'),
+        ]
+
+        for line in text_lines:
+            text = line['text']
+            for pattern, block_type, symbol in patterns:
+                match = re.search(pattern, text, re.I)
+                if match:
+                    groups = match.groups()
+
+                    if len(groups) >= 2 and groups[1]:
+                        nom = f'{groups[0]} - {groups[1]}'
+                        upper = groups[1]
+                        lower = groups[0]
+                    else:
+                        nom = groups[0]
+                        upper = groups[0]
+                        lower = groups[0]
+
+                    blocks.append(DataBlock(
+                        block_type=block_type,
+                        center_x=line['x_start'],
+                        center_y=line['y'],
+                        symbol=symbol,
+                        nom=nom,
+                        upper_tol=upper,
+                        lower_tol=lower,
+                        description=text[:50]
+                    ))
+                    break
+
+        for line in text_lines:
+            text = line['text'].upper()
+
+            if 'NO CRACKS' in text or 'CHIPPING' in text:
+                blocks.append(DataBlock(
+                    block_type='visual_inspection',
+                    center_x=line['x_start'],
+                    center_y=line['y'],
+                    symbol='目视',
+                    nom='合格',
+                    upper_tol='-',
+                    lower_tol='-',
+                    description='无裂纹/崩边'
+                ))
+
+            if 'SALT SPRAY' in text:
+                time_match = re.search(r'(\d+)\s*HR', text)
+                hours = time_match.group(1) if time_match else '24'
+                blocks.append(DataBlock(
+                    block_type='salt_spray',
+                    center_x=line['x_start'],
+                    center_y=line['y'],
+                    symbol='盐雾',
+                    nom=f'{hours}小时',
+                    upper_tol='-',
+                    lower_tol='-',
+                    description='无腐蚀/点蚀'
+                ))
+
+        return blocks
+
     def _find_all_fai(self, words: List[Dict]) -> Dict[int, Dict]:
-        """查找所有FAI标注"""
+        """查找所有FAI标注 - 改进版：选择最近的数字"""
         fai_positions = {}
 
         for i, w in enumerate(words):
@@ -357,19 +556,29 @@ class PDFExtractorV2:
 
             if text == 'FAI':
                 fai_x, fai_y = w['x0'], w['top']
-                for j in range(i + 1, min(i + 10, len(words))):
+
+                # 收集所有候选数字，选择最近的
+                candidates = []
+                for j in range(i + 1, min(i + 15, len(words))):
                     nw = words[j]
                     dist = ((nw['x0'] - fai_x)**2 + (nw['top'] - fai_y)**2)**0.5
                     if dist < 80 and re.match(r'^[0-9]{1,2}$', nw['text'].strip()):
                         fai_num = int(nw['text'].strip())
                         if 1 <= fai_num <= 99:
-                            fai_positions[fai_num] = {'x': fai_x, 'y': fai_y}
-                        break
+                            candidates.append((fai_num, dist, fai_x, fai_y))
+
+                # 选择距离最近的
+                if candidates:
+                    candidates.sort(key=lambda x: x[1])
+                    fai_num, _, fx, fy = candidates[0]
+                    # 避免重复覆盖（保留距离更近的）
+                    if fai_num not in fai_positions:
+                        fai_positions[fai_num] = {'x': fx, 'y': fy}
 
             match = re.match(r'^FAI\s*(\d{1,2})$', text)
             if match:
                 fai_num = int(match.group(1))
-                if 1 <= fai_num <= 99:
+                if 1 <= fai_num <= 99 and fai_num not in fai_positions:
                     fai_positions[fai_num] = {'x': w['x0'], 'y': w['top']}
 
         return fai_positions
@@ -384,7 +593,8 @@ class PDFExtractorV2:
                 for j in range(i + 1, min(i + 8, len(words))):
                     nw = words[j]
                     dist = ((nw['x0'] - spc_x)**2 + (nw['top'] - spc_y)**2)**0.5
-                    if dist < 60 and re.match(r'^[A-Z]$', nw['text'].strip()):
+                    # 排除 O（容易与0混淆）
+                    if dist < 60 and re.match(r'^[A-NP-Z]$', nw['text'].strip()):
                         letter = nw['text'].strip()
                         spc_positions[letter] = {'x': spc_x, 'y': spc_y}
                         break
@@ -396,10 +606,11 @@ class PDFExtractorV2:
         fai_info: Dict,
         fai_num: int,
         data_blocks: List[DataBlock],
+        text_lines: List[Dict],
         spc_positions: Dict,
         page: int
     ) -> FAIData:
-        """将FAI匹配到最近的数据块，提供置信度排名"""
+        """将FAI匹配到最近的数据块或文本行"""
         fai_x, fai_y = fai_info['x'], fai_info['y']
 
         # 找最近的SPC
@@ -411,56 +622,88 @@ class PDFExtractorV2:
                 min_spc_dist = dist
                 spc = letter
 
-        # 计算到所有数据块的距离，按距离排序
+        # 方法1：匹配数据块
         candidates = []
         for block in data_blocks:
             dist = ((block.center_x - fai_x)**2 + (block.center_y - fai_y)**2)**0.5
-            if dist < 500:  # 搜索范围
-                candidates.append((block, dist))
+            y_diff = abs(block.center_y - fai_y)
+            priority = 0 if y_diff < 50 else 1
+            if dist < 600:
+                candidates.append((block, dist, priority))
 
-        candidates.sort(key=lambda x: x[1])
+        candidates.sort(key=lambda x: (x[2], x[1]))
 
-        if not candidates:
+        if candidates:
+            best_block, best_dist, _ = candidates[0]
+            measure_type = self.measure_type_map.get(best_block.block_type, '未识别')
+            category = self.category_map.get(best_block.block_type, '几何尺寸')
+
+            desc_parts = [best_block.description] if best_block.description else []
+            desc_parts.append(f'距离:{best_dist:.0f}')
+
+            # 构建完整的备选列表
+            alternatives = []
+            if len(candidates) > 1:
+                for block, dist, _ in candidates[1:4]:
+                    if dist - best_dist < 150:
+                        alt_type = self.measure_type_map.get(block.block_type, '?')
+                        alt_category = self.category_map.get(block.block_type, '几何尺寸')
+                        alternatives.append({
+                            'nom': block.nom,
+                            'upper_tol': block.upper_tol,
+                            'lower_tol': block.lower_tol,
+                            'symbol': block.symbol,
+                            'measure_type': alt_type,
+                            'category': alt_category,
+                            'distance': int(dist),
+                            'description': block.description
+                        })
+                if alternatives:
+                    alt_names = [f"{a['measure_type']}({a['distance']})" for a in alternatives]
+                    desc_parts.append(f'备选:{",".join(alt_names)}')
+
             return FAIData(
                 fai_num=fai_num,
                 spc=spc,
-                nom='-',
-                upper_tol='-',
-                lower_tol='-',
-                symbol='-',
-                measure_type='未识别',
-                description='',
-                page=page
+                nom=best_block.nom,
+                upper_tol=best_block.upper_tol,
+                lower_tol=best_block.lower_tol,
+                symbol=best_block.symbol,
+                measure_type=measure_type,
+                description=' | '.join(desc_parts),
+                page=page,
+                category=category,
+                alternatives=alternatives if alternatives else None
             )
 
-        # 最近的块作为默认
-        best_block, best_dist = candidates[0]
-        measure_type = self.measure_type_map.get(best_block.block_type, '未识别')
-
-        # 构建描述，包含置信度信息
-        desc_parts = [best_block.description] if best_block.description else []
-        desc_parts.append(f'距离:{best_dist:.0f}')
-
-        # 如果有其他近距离候选（距离差<100），列出供参考
-        if len(candidates) > 1:
-            alt_candidates = []
-            for block, dist in candidates[1:4]:  # 最多显示3个备选
-                if dist - best_dist < 150:  # 距离差不大时才显示
-                    alt_type = self.measure_type_map.get(block.block_type, '?')
-                    alt_candidates.append(f'{alt_type}({dist:.0f})')
-            if alt_candidates:
-                desc_parts.append(f'备选:{",".join(alt_candidates)}')
+        # 方法2：匹配同一行或上方的文本行
+        for line in text_lines:
+            if abs(line['y'] - fai_y) < 30 and line['x_end'] < fai_x:
+                text = line['text'][:60]
+                return FAIData(
+                    fai_num=fai_num,
+                    spc=spc,
+                    nom='-',
+                    upper_tol='-',
+                    lower_tol='-',
+                    symbol='文本',
+                    measure_type='文本规格',
+                    description=text,
+                    page=page,
+                    category='工艺要求'
+                )
 
         return FAIData(
             fai_num=fai_num,
             spc=spc,
-            nom=best_block.nom,
-            upper_tol=best_block.upper_tol,
-            lower_tol=best_block.lower_tol,
-            symbol=best_block.symbol,
-            measure_type=measure_type,
-            description=' | '.join(desc_parts),
-            page=page
+            nom='-',
+            upper_tol='-',
+            lower_tol='-',
+            symbol='-',
+            measure_type='未识别',
+            description='',
+            page=page,
+            category='未分类'
         )
 
     def _deduplicate_fai(self, results: List[FAIData]) -> List[FAIData]:
@@ -470,15 +713,19 @@ class PDFExtractorV2:
             if r.fai_num not in seen:
                 seen[r.fai_num] = r
             else:
-                # 保留有更多信息的
                 if r.measure_type != '未识别' and seen[r.fai_num].measure_type == '未识别':
+                    seen[r.fai_num] = r
+                elif r.spc and not seen[r.fai_num].spc:
                     seen[r.fai_num] = r
         return sorted(seen.values(), key=lambda x: x.fai_num)
 
 
+PDFExtractorV2 = PDFExtractorV3
+
+
 def extract_fai(pdf_path: str) -> List[dict]:
     """提取PDF中的FAI数据"""
-    extractor = PDFExtractorV2()
+    extractor = PDFExtractorV3()
     results = extractor.extract_fai_from_pdf(pdf_path)
     return [r.to_dict() for r in results]
 
@@ -486,6 +733,11 @@ def extract_fai(pdf_path: str) -> List[dict]:
 if __name__ == '__main__':
     import sys
     import json
+
+    if sys.platform == 'win32':
+        import io
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
     if len(sys.argv) > 1:
         results = extract_fai(sys.argv[1])
         print(json.dumps(results, ensure_ascii=False, indent=2))

@@ -30,6 +30,7 @@ class FAIItemResponse(BaseModel):
     measure_type: Optional[str]
     description: Optional[str]
     page: Optional[int]
+    category: Optional[str] = None  # V3新增：分类
 
     class Config:
         from_attributes = True
@@ -120,7 +121,8 @@ async def extract_pdf(
                 symbol=item.get('symbol'),
                 measure_type=item.get('measure_type'),
                 description=item.get('description', ''),
-                page=item.get('page')
+                page=item.get('page'),
+                category=item.get('category')  # V3新增
             )
             db.add(db_item)
 

@@ -1,6 +1,6 @@
 """
 @file fai.py
-@desc FAI数据SQLAlchemy模型定义
+@desc FAI数据SQLAlchemy模型定义 - V3
 """
 
 from datetime import datetime
@@ -33,10 +33,11 @@ class FAIItem(Base):
     nom = Column(String(50), nullable=True)
     upper_tol = Column(String(50), nullable=True)
     lower_tol = Column(String(50), nullable=True)
-    symbol = Column(String(20), nullable=True)  # GD&T符号: ⌒ ▱ // R ± 等
-    measure_type = Column(String(50), nullable=True)  # 测量类型：尺寸公差/平面度/平行度/圆角半径等
+    symbol = Column(String(20), nullable=True)  # GD&T符号
+    measure_type = Column(String(50), nullable=True)  # 测量类型
     description = Column(Text, nullable=True)
     page = Column(Integer, nullable=True)
+    category = Column(String(50), nullable=True)  # V3新增：分类（几何尺寸/材料性能/表面处理/工艺要求）
 
     # 关联提取记录
     extraction = relationship("FAIExtraction", back_populates="items")
