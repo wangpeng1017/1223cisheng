@@ -5,7 +5,6 @@
 """
 from pptx import Presentation
 from pptx.util import Inches, Pt, Emu
-from pptx.dml.color import RgbColor
 from pptx.enum.text import PP_ALIGN
 from pptx.enum.shapes import MSO_SHAPE_TYPE
 import os
