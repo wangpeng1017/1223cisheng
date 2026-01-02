@@ -39,5 +39,15 @@ class FAIItem(Base):
     page = Column(Integer, nullable=True)
     category = Column(String(50), nullable=True)  # V3新增：分类（几何尺寸/材料性能/表面处理/工艺要求）
 
+    # MTD 扩展字段
+    cpk_method = Column(String(50), nullable=True)  # HG, Keyence, Fluxmeter
+    cpk_fixture = Column(String(50), nullable=True)  # No, J-J510-1#
+    inprocess_method = Column(String(50), nullable=True)
+    inprocess_fixture = Column(String(50), nullable=True)
+    location = Column(String(50), nullable=True)  # P1A3, P1A2
+    cross_check_by = Column(String(100), nullable=True)  # Guo Teng
+    measurement_steps = Column(Text, nullable=True)  # 测量步骤说明 JSON
+    images = Column(Text, nullable=True)  # 操作图片路径列表 JSON
+
     # 关联提取记录
     extraction = relationship("FAIExtraction", back_populates="items")

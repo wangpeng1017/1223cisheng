@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from database import init_db
 from api.extract import router as extract_router
+from api.mtd import router as mtd_router
 
 # 创建应用
 app = FastAPI(
@@ -32,6 +33,7 @@ app.add_middleware(
 
 # 注册路由
 app.include_router(extract_router)
+app.include_router(mtd_router)
 
 
 @app.on_event("startup")
