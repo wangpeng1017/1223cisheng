@@ -188,16 +188,16 @@ class MTDPPTGenerator:
                         row_idx = idx + 1
                         if row_idx < len(table.rows):
                             row = table.rows[row_idx]
-                            row.cells[0].text = str(item.get('fai_num', ''))
-                            row.cells[1].text = item.get('spc', '')
-                            row.cells[2].text = item.get('specification', '')
-                            row.cells[3].text = item.get('description', '')
-                            row.cells[4].text = item.get('cpk_method', '')
-                            row.cells[5].text = item.get('cpk_fixture', 'No')
-                            row.cells[6].text = item.get('inprocess_method', '')
-                            row.cells[7].text = item.get('inprocess_fixture', 'No')
-                            row.cells[8].text = item.get('location', '')
-                            row.cells[9].text = item.get('cross_check_by', '')
+                            row.cells[0].text = str(item.get('fai_num') or '')
+                            row.cells[1].text = item.get('spc') or ''
+                            row.cells[2].text = item.get('specification') or ''
+                            row.cells[3].text = item.get('description') or ''
+                            row.cells[4].text = item.get('cpk_method') or ''
+                            row.cells[5].text = item.get('cpk_fixture') or 'No'
+                            row.cells[6].text = item.get('inprocess_method') or ''
+                            row.cells[7].text = item.get('inprocess_fixture') or 'No'
+                            row.cells[8].text = item.get('location') or ''
+                            row.cells[9].text = item.get('cross_check_by') or ''
 
     def _update_detail_slides(self, fai_items: List[Dict], project: Dict):
         """更新测试项详情页（第12页起）"""
@@ -233,17 +233,17 @@ class MTDPPTGenerator:
 
         if len(table.rows) >= 1:
             # 更新标题行
-            header_text = f"{item.get('description', '')}  FAI {item.get('fai_num', '')} /SPC {item.get('spc', '')} :{item.get('specification', '')}"
+            header_text = f"{item.get('description') or ''}  FAI {item.get('fai_num') or ''} /SPC {item.get('spc') or ''} :{item.get('specification') or ''}"
             if len(table.rows[0].cells) >= 1:
                 table.rows[0].cells[0].text = header_text
 
         if len(table.rows) >= 3:
             # 更新测量方法详情
-            cpk_text = f"1.  Measurement Method ：{item.get('cpk_method', '')}\n"
+            cpk_text = f"1.  Measurement Method ：{item.get('cpk_method') or ''}\n"
             cpk_text += f"2.  Fixture ：{item.get('cpk_fixture', '/')}\n"
             cpk_text += f"3.  Measurement steps: {item.get('measurement_steps', 'See image')}"
 
-            inprocess_text = f"1.  Measurement Method ：{item.get('inprocess_method', '')}\n"
+            inprocess_text = f"1.  Measurement Method ：{item.get('inprocess_method') or ''}\n"
             inprocess_text += f"2.  Fixture ：{item.get('inprocess_fixture', '/')}\n"
             inprocess_text += f"3.  Measurement steps: {item.get('measurement_steps', 'See image')}"
 
