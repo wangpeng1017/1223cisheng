@@ -57,6 +57,72 @@ def extract_placeholders_from_text(text: str) -> List[str]:
     return re.findall(pattern, text)
 
 
+
+def generate_thumbnail(file_path: str, output_dir: Path) -> str:
+    """使用 LibreOffice 将 PPT 第一页转换为缩略图"""
+    import subprocess
+    import os
+    
+    output_dir.mkdir(parents=True, exist_ok=True)
+    base_name = Path(file_path).stem
+    thumbnail_path = output_dir / f"{base_name}_thumb.png"
+    
+    # 如果缩略图已存在，直接返回
+    if thumbnail_path.exists():
+        return str(thumbnail_path)
+    
+    # 使用 LibreOffice 转换为 PDF
+    temp_dir = Path("/tmp/ppt_convert")
+    temp_dir.mkdir(exist_ok=True)
+    
+    try:
+        # 转换为 PDF
+        subprocess.run([
+            "libreoffice", "--headless", "--convert-to", "pdf",
+            "--outdir", str(temp_dir),
+            str(file_path)
+        ], check=True, timeout=30, capture_output=True)
+        
+        pdf_file = temp_dir / f"{base_name}.pdf"
+        
+        # 使用 pdftoppm 或 convert 将 PDF 第一页转为图片
+        img_path = temp_dir / f"{base_name}-1.png"
+        
+        # 尝试使用 pdftoppm (poppler-utils)
+        try:
+            subprocess.run([
+                "pdftoppm", "-png", "-f", "1", "-singlefile",
+                str(pdf_file), str(temp_dir / base_name)
+            ], check=True, timeout=10, capture_output=True)
+            if img_path.exists():
+                img_path.rename(thumbnail_path)
+                return str(thumbnail_path)
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            pass
+        
+        # 尝试使用 convert (ImageMagick)
+        try:
+            subprocess.run([
+                "convert", f"{pdf_file}[0]", str(thumbnail_path)
+            ], check=True, timeout=10, capture_output=True)
+            if thumbnail_path.exists():
+                return str(thumbnail_path)
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            pass
+        
+    except Exception as e:
+        print(f"Thumbnail generation failed: {e}")
+    finally:
+        # 清理临时文件
+        for f in temp_dir.glob("*"):
+            try:
+                f.unlink()
+            except:
+                pass
+    
+    return ""
+
+
 def parse_ppt_template(file_path: str) -> Dict[str, Any]:
     if Presentation is None:
         return {"slide_count": 0, "slides": [], "detected_placeholders": []}
@@ -106,13 +172,18 @@ async def upload_template(
         f.write(content)
     ppt_info = parse_ppt_template(str(file_path))
     template_name = name or file.filename.replace(".pptx", "").replace(".ppt", "")
+    
+    # 生成缩略图
+    thumbnail_dir = UPLOAD_DIR / "thumbnails"
+    thumbnail_path = generate_thumbnail(str(file_path), thumbnail_dir)
+    
     db_template = PPTTemplate(
         name=template_name,
         entity_type=entity_type,
         file_path=str(file_path),
         slide_count=ppt_info["slide_count"],
         placeholders=[{"key": p, "default": f"[{p}]"} for p in ppt_info["detected_placeholders"]],
-        thumbnail_path=""
+        thumbnail_path=thumbnail_path
     )
     db.add(db_template)
     db.commit()
@@ -241,3 +312,37 @@ def bind_fixture_template(
     fixture.ppt_slide_index = request.slide_index
     db.commit()
     return {"message": "模板绑定成功"}
+
+
+@router.get("/{template_id}/thumbnail")
+def get_thumbnail(template_id: int, db: Session = Depends(get_db)):
+    """获取模板缩略图"""
+    from fastapi.responses import FileResponse
+    
+    template = db.query(PPTTemplate).filter(PPTTemplate.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="模板不存在")
+    
+    if not template.thumbnail_path or not os.path.exists(template.thumbnail_path):
+        raise HTTPException(status_code=404, detail="缩略图不存在")
+    
+    return FileResponse(template.thumbnail_path, media_type="image/png")
+
+@router.get("/{template_id}/download")
+def download_template(template_id: int, db: Session = Depends(get_db)):
+    """下载模板文件"""
+    from fastapi.responses import FileResponse
+    
+    template = db.query(PPTTemplate).filter(PPTTemplate.id == template_id).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="模板不存在")
+    
+    if not template.file_path or not os.path.exists(template.file_path):
+        raise HTTPException(status_code=404, detail="文件不存在")
+    
+    return FileResponse(
+        template.file_path,
+        media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        filename=template.name + ".pptx"
+    )
+

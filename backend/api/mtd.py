@@ -99,6 +99,19 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
     return {"message": "Project deleted"}
 
 
+
+
+@router.put("/projects/{project_id}", response_model=ProjectResponse)
+def update_project(project_id: int, project: ProjectCreate, db: Session = Depends(get_db)):
+    """更新 MTD 项目"""
+    db_project = db.query(MTDProject).filter(MTDProject.id == project_id).first()
+    if not db_project:
+        raise HTTPException(status_code=404, detail="Project not found")
+    for key, value in project.model_dump().items():
+        setattr(db_project, key, value)
+    db.commit()
+    db.refresh(db_project)
+    return db_project
 @router.post("/projects/{project_id}/generate-ppt")
 def generate_ppt(project_id: int, db: Session = Depends(get_db)):
     """生成 MTD PPT"""
@@ -157,6 +170,19 @@ def create_equipment(equipment: EquipmentCreate, db: Session = Depends(get_db)):
     db.refresh(db_equipment)
     return db_equipment
 
+
+@router.put("/equipment/{equipment_id}")
+def update_equipment(equipment_id: int, equipment: EquipmentCreate, db: Session = Depends(get_db)):
+    """更新设备"""
+    db_eq = db.query(Equipment).filter(Equipment.id == equipment_id).first()
+    if not db_eq:
+        raise HTTPException(status_code=404, detail="Equipment not found")
+    for key, value in equipment.model_dump().items():
+        setattr(db_eq, key, value)
+    db.commit()
+    db.refresh(db_eq)
+    return db_eq
+
 @router.delete("/equipment/{equipment_id}")
 def delete_equipment(equipment_id: int, db: Session = Depends(get_db)):
     """删除设备"""
@@ -182,6 +208,19 @@ def create_fixture(fixture: FixtureCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_fixture)
     return db_fixture
+
+
+@router.put("/fixtures/{fixture_id}")
+def update_fixture(fixture_id: int, fixture: FixtureCreate, db: Session = Depends(get_db)):
+    """更新夹具"""
+    db_f = db.query(Fixture).filter(Fixture.id == fixture_id).first()
+    if not db_f:
+        raise HTTPException(status_code=404, detail="Fixture not found")
+    for key, value in fixture.model_dump().items():
+        setattr(db_f, key, value)
+    db.commit()
+    db.refresh(db_f)
+    return db_f
 
 @router.delete("/fixtures/{fixture_id}")
 def delete_fixture(fixture_id: int, db: Session = Depends(get_db)):
