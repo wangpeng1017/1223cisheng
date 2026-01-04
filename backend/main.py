@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
 from api.extract import router as extract_router
 from api.mtd import router as mtd_router
+from api.ppt_template_api import router as ppt_template_router
 
 # 创建应用
 app = FastAPI(
@@ -21,10 +22,12 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:3000",      # Next.js开发服务器
+        "http://8.130.182.148:3002",
+        "http://8.130.182.148:3000",
+        "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://localhost:3001",
-        "*"                           # 生产环境应改为具体域名
+        "*"
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -34,6 +37,7 @@ app.add_middleware(
 # 注册路由
 app.include_router(extract_router)
 app.include_router(mtd_router)
+app.include_router(ppt_template_router)
 
 
 @app.on_event("startup")

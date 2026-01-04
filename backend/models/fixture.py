@@ -3,7 +3,7 @@
 @desc 测量夹具数据模型
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from database import Base
 
 
@@ -17,4 +17,6 @@ class Fixture(Base):
     material = Column(String(100), nullable=True)  # Electric board
     image_path = Column(String(500), nullable=True)
     remark = Column(String(500), nullable=True)
+    ppt_template_id = Column(Integer, ForeignKey("ppt_templates.id"), nullable=True)  # 关联的 PPT 模板 ID
+    ppt_slide_index = Column(Integer, default=1)  # 使用第几页（默认第1页）
     created_at = Column(DateTime, default=datetime.utcnow)

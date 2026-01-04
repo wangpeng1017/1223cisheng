@@ -3,7 +3,7 @@
 @desc 测量设备数据模型
 """
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, Text, DateTime, JSON
+from sqlalchemy import Column, Integer, String, Text, DateTime, JSON, ForeignKey
 from database import Base
 
 
@@ -17,4 +17,6 @@ class Equipment(Base):
     model = Column(String(100), nullable=True)  # 型号 IM7010
     specs = Column(JSON, nullable=True)  # 设备规格参数 JSON
     image_path = Column(String(500), nullable=True)  # 设备图片路径
+    ppt_template_id = Column(Integer, ForeignKey("ppt_templates.id"), nullable=True)  # 关联的 PPT 模板 ID
+    ppt_slide_index = Column(Integer, default=1)  # 使用第几页（默认第1页）
     created_at = Column(DateTime, default=datetime.utcnow)
