@@ -1,19 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import { Progress } from "@/components/ui/progress"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Button, Card, Tabs, Table, Progress, Modal, message } from "antd"
+import type { TableProps, TabsProps } from "antd"
 import { Plus, Settings, Wrench, Package, FileDown, Trash2, Loader2, Edit2, FileText } from "lucide-react"
 import { generateMTDPPT } from "@/lib/ppt-generator"
 import { ProjectSheet, EquipmentSheet, FixtureSheet, TemplateManageSheet } from "@/components/mtd"
@@ -202,8 +191,11 @@ export default function MTDPage() {
 
     const res = await fetch(url, { method: "DELETE" })
     if (res.ok) {
+      message.success("删除成功")
       fetchAll()
       setDeleteDialog({ open: false, type: "", id: 0, name: "" })
+    } else {
+      message.error("删除失败")
     }
   }
 
@@ -237,8 +229,9 @@ export default function MTDPage() {
       )
 
       setProgressMsg("PPT 生成完成！")
+      message.success("PPT 生成成功")
     } catch (error) {
-      alert("生成 PPT 失败: " + error)
+      message.error("生成 PPT 失败: " + error)
     } finally {
       setTimeout(() => { setGenerating(false); setProgress(0); setProgressMsg("") }, 1500)
     }
@@ -249,212 +242,205 @@ export default function MTDPage() {
     return templates.find(t => t.id === templateId)?.name || "未知"
   }
 
+  // 项目表格列
+  const projectColumns: TableProps<MTDProject>["columns"] = [
+    {
+      title: "项目名称",
+      dataIndex: "project_name",
+      render: (text: string) => <span className="font-medium">{text}</span>
+    },
+    { title: "料号", dataIndex: "part_number" },
+    { title: "供应商", dataIndex: "vendor", render: (text: string) => text || "-" },
+    { title: "版本", dataIndex: "revision" },
+    {
+      title: "设备数",
+      dataIndex: "equipment_ids",
+      render: (ids: number[]) => ids?.length || 0
+    },
+    {
+      title: "夹具数",
+      dataIndex: "fixture_ids",
+      render: (ids: number[]) => ids?.length || 0
+    },
+    {
+      title: "创建时间",
+      dataIndex: "created_at",
+      render: (date: string) => new Date(date).toLocaleDateString("zh-CN")
+    },
+    {
+      title: "操作",
+      key: "action",
+      align: "right",
+      render: (_, record) => (
+        <Button.Group size="small">
+          <Button type="text" icon={<Edit2 size={14} />} onClick={() => openProjectSheet(record)} />
+          <Button type="text" icon={<FileDown size={14} />} onClick={() => generatePPT(record)} disabled={generating} />
+          <Button type="text" danger icon={<Trash2 size={14} />} onClick={() => confirmDelete("project", record.id, record.project_name)} />
+        </Button.Group>
+      )
+    }
+  ]
+
+  // 设备表格列
+  const equipmentColumns: TableProps<Equipment>["columns"] = [
+    {
+      title: "设备名称",
+      dataIndex: "name",
+      render: (text: string) => <span className="font-medium">{text}</span>
+    },
+    { title: "制造商", dataIndex: "manufacturer", render: (text: string) => text || "-" },
+    { title: "型号", dataIndex: "model", render: (text: string) => text || "-" },
+    { title: "量程", dataIndex: "specs", render: (specs: any) => specs?.range || "-" },
+    { title: "分辨率", dataIndex: "specs", render: (specs: any) => specs?.resolution || "-" },
+    { title: "精度", dataIndex: "specs", render: (specs: any) => specs?.accuracy || "-" },
+    {
+      title: "PPT模板",
+      dataIndex: "ppt_template_id",
+      render: (templateId: number) => <span className="text-gray-500 text-sm">{getTemplateName(templateId)}</span>
+    },
+    {
+      title: "操作",
+      key: "action",
+      align: "right",
+      render: (_, record) => (
+        <Button.Group size="small">
+          <Button type="text" icon={<Edit2 size={14} />} onClick={() => openEquipmentSheet(record)} />
+          <Button type="text" icon={<FileText size={14} />} onClick={() => openTemplateSheet("equipment", record.id)} />
+          <Button type="text" danger icon={<Trash2 size={14} />} onClick={() => confirmDelete("equipment", record.id, record.name)} />
+        </Button.Group>
+      )
+    }
+  ]
+
+  // 夹具表格列
+  const fixtureColumns: TableProps<Fixture>["columns"] = [
+    {
+      title: "夹具编号",
+      dataIndex: "fixture_no",
+      render: (text: string) => <span className="font-medium">{text}</span>
+    },
+    { title: "尺寸", dataIndex: "size", render: (text: string) => text || "-" },
+    { title: "材料", dataIndex: "material", render: (text: string) => text || "-" },
+    { title: "备注", dataIndex: "remark", render: (text: string) => text || "-" },
+    {
+      title: "PPT模板",
+      dataIndex: "ppt_template_id",
+      render: (templateId: number) => <span className="text-gray-500 text-sm">{getTemplateName(templateId)}</span>
+    },
+    {
+      title: "操作",
+      key: "action",
+      align: "right",
+      render: (_, record) => (
+        <Button.Group size="small">
+          <Button type="text" icon={<Edit2 size={14} />} onClick={() => openFixtureSheet(record)} />
+          <Button type="text" icon={<FileText size={14} />} onClick={() => openTemplateSheet("fixture", record.id)} />
+          <Button type="text" danger icon={<Trash2 size={14} />} onClick={() => confirmDelete("fixture", record.id, record.fixture_no)} />
+        </Button.Group>
+      )
+    }
+  ]
+
+  const tabItems: TabsProps["items"] = [
+    {
+      key: "projects",
+      label: (
+        <span className="flex items-center gap-2">
+          <Package size={16} />
+          项目
+        </span>
+      ),
+      children: (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button type="primary" icon={<Plus size={16} />} onClick={() => openProjectSheet()}>
+              新建项目
+            </Button>
+          </div>
+          <Table
+            dataSource={projects}
+            columns={projectColumns}
+            rowKey="id"
+            pagination={false}
+            locale={{ emptyText: <p className="text-center text-gray-400 py-8">暂无项目，点击「新建项目」创建</p> }}
+          />
+        </div>
+      )
+    },
+    {
+      key: "equipment",
+      label: (
+        <span className="flex items-center gap-2">
+          <Settings size={16} />
+          设备
+        </span>
+      ),
+      children: (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button type="primary" icon={<Plus size={16} />} onClick={() => openEquipmentSheet()}>
+              添加设备
+            </Button>
+          </div>
+          <Table
+            dataSource={equipment}
+            columns={equipmentColumns}
+            rowKey="id"
+            pagination={false}
+            locale={{ emptyText: <p className="text-center text-gray-400 py-8">暂无设备，点击「添加设备」创建</p> }}
+          />
+        </div>
+      )
+    },
+    {
+      key: "fixtures",
+      label: (
+        <span className="flex items-center gap-2">
+          <Wrench size={16} />
+          夹具
+        </span>
+      ),
+      children: (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button type="primary" icon={<Plus size={16} />} onClick={() => openFixtureSheet()}>
+              添加夹具
+            </Button>
+          </div>
+          <Table
+            dataSource={fixtures}
+            columns={fixtureColumns}
+            rowKey="id"
+            pagination={false}
+            locale={{ emptyText: <p className="text-center text-gray-400 py-8">暂无夹具，点击「添加夹具」创建</p> }}
+          />
+        </div>
+      )
+    }
+  ]
+
   return (
     <div className="container mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold">MTD 项目管理</h1>
-          <p className="text-muted-foreground">管理 MTD 项目，自动生成测试文档 PPT</p>
+          <p className="text-gray-500">管理 MTD 项目，自动生成测试文档 PPT</p>
         </div>
       </div>
 
       {/* PPT 生成进度 */}
       {generating && (
         <Card className="mb-6 border-blue-200 bg-blue-50">
-          <CardContent className="pt-4">
-            <div className="flex items-center gap-3 mb-2">
-              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
-              <span className="font-medium text-blue-800">{progressMsg}</span>
-            </div>
-            <Progress value={progress} className="h-2" />
-            <p className="text-sm text-blue-600 mt-1 text-right">{progress}%</p>
-          </CardContent>
+          <div className="flex items-center gap-3 mb-2">
+            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            <span className="font-medium text-blue-800">{progressMsg}</span>
+          </div>
+          <Progress percent={progress} className="mb-1" />
+          <p className="text-sm text-blue-600 text-right">{progress}%</p>
         </Card>
       )}
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="projects"><Package className="w-4 h-4 mr-2" />项目</TabsTrigger>
-          <TabsTrigger value="equipment"><Settings className="w-4 h-4 mr-2" />设备</TabsTrigger>
-          <TabsTrigger value="fixtures"><Wrench className="w-4 h-4 mr-2" />夹具</TabsTrigger>
-        </TabsList>
-
-        {/* 项目 TAB */}
-        <TabsContent value="projects">
-          <div className="flex justify-end mb-4">
-            <Button onClick={() => openProjectSheet()}>
-              <Plus className="w-4 h-4 mr-2" />新建项目
-            </Button>
-          </div>
-
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>项目名称</TableHead>
-                  <TableHead>料号</TableHead>
-                  <TableHead>供应商</TableHead>
-                  <TableHead>版本</TableHead>
-                  <TableHead>设备数</TableHead>
-                  <TableHead>夹具数</TableHead>
-                  <TableHead>创建时间</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {projects.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      暂无项目，点击「新建项目」创建
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  projects.map((p) => (
-                    <TableRow key={p.id}>
-                      <TableCell className="font-medium">{p.project_name}</TableCell>
-                      <TableCell>{p.part_number}</TableCell>
-                      <TableCell>{p.vendor || "-"}</TableCell>
-                      <TableCell>{p.revision}</TableCell>
-                      <TableCell>{p.equipment_ids?.length || 0}</TableCell>
-                      <TableCell>{p.fixture_ids?.length || 0}</TableCell>
-                      <TableCell>{new Date(p.created_at).toLocaleDateString("zh-CN")}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button size="icon" variant="ghost" onClick={() => openProjectSheet(p)} title="编辑">
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => generatePPT(p)} disabled={generating} title="生成PPT">
-                            <FileDown className="w-4 h-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => confirmDelete("project", p.id, p.project_name)} title="删除">
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </Card>
-        </TabsContent>
-
-        {/* 设备 TAB */}
-        <TabsContent value="equipment">
-          <div className="flex justify-end mb-4">
-            <Button onClick={() => openEquipmentSheet()}>
-              <Plus className="w-4 h-4 mr-2" />添加设备
-            </Button>
-          </div>
-
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>设备名称</TableHead>
-                  <TableHead>制造商</TableHead>
-                  <TableHead>型号</TableHead>
-                  <TableHead>量程</TableHead>
-                  <TableHead>分辨率</TableHead>
-                  <TableHead>精度</TableHead>
-                  <TableHead>PPT模板</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {equipment.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
-                      暂无设备，点击「添加设备」创建
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  equipment.map((eq) => (
-                    <TableRow key={eq.id}>
-                      <TableCell className="font-medium">{eq.name}</TableCell>
-                      <TableCell>{eq.manufacturer || "-"}</TableCell>
-                      <TableCell>{eq.model || "-"}</TableCell>
-                      <TableCell>{eq.specs?.range || "-"}</TableCell>
-                      <TableCell>{eq.specs?.resolution || "-"}</TableCell>
-                      <TableCell>{eq.specs?.accuracy || "-"}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{getTemplateName(eq.ppt_template_id)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button size="icon" variant="ghost" onClick={() => openEquipmentSheet(eq)} title="编辑">
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => openTemplateSheet("equipment", eq.id)} title="模板">
-                            <FileText className="w-4 h-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => confirmDelete("equipment", eq.id, eq.name)} title="删除">
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </Card>
-        </TabsContent>
-
-        {/* 夹具 TAB */}
-        <TabsContent value="fixtures">
-          <div className="flex justify-end mb-4">
-            <Button onClick={() => openFixtureSheet()}>
-              <Plus className="w-4 h-4 mr-2" />添加夹具
-            </Button>
-          </div>
-
-          <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>夹具编号</TableHead>
-                  <TableHead>尺寸</TableHead>
-                  <TableHead>材料</TableHead>
-                  <TableHead>备注</TableHead>
-                  <TableHead>PPT模板</TableHead>
-                  <TableHead className="text-right">操作</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {fixtures.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                      暂无夹具，点击「添加夹具」创建
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  fixtures.map((f) => (
-                    <TableRow key={f.id}>
-                      <TableCell className="font-medium">{f.fixture_no}</TableCell>
-                      <TableCell>{f.size || "-"}</TableCell>
-                      <TableCell>{f.material || "-"}</TableCell>
-                      <TableCell>{f.remark || "-"}</TableCell>
-                      <TableCell className="text-muted-foreground text-sm">{getTemplateName(f.ppt_template_id)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button size="icon" variant="ghost" onClick={() => openFixtureSheet(f)} title="编辑">
-                            <Edit2 className="w-4 h-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => openTemplateSheet("fixture", f.id)} title="模板">
-                            <FileText className="w-4 h-4" />
-                          </Button>
-                          <Button size="icon" variant="ghost" onClick={() => confirmDelete("fixture", f.id, f.fixture_no)} title="删除">
-                            <Trash2 className="w-4 h-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
 
       {/* 项目抽屉 */}
       <ProjectSheet
@@ -507,21 +493,20 @@ export default function MTDPage() {
       />
 
       {/* 删除确认对话框 */}
-      <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ ...deleteDialog, open })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>确认删除</DialogTitle>
-          </DialogHeader>
-          <p className="py-4">
-            确定要删除{deleteDialog.type === "project" ? "项目" : deleteDialog.type === "equipment" ? "设备" : "夹具"}
-            「{deleteDialog.name}」吗？此操作不可撤销。
-          </p>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog({ ...deleteDialog, open: false })}>取消</Button>
-            <Button variant="destructive" onClick={handleDelete}>删除</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <Modal
+        title="确认删除"
+        open={deleteDialog.open}
+        onOk={handleDelete}
+        onCancel={() => setDeleteDialog({ ...deleteDialog, open: false })}
+        okText="删除"
+        cancelText="取消"
+        okButtonProps={{ danger: true }}
+      >
+        <p className="py-4">
+          确定要删除{deleteDialog.type === "project" ? "项目" : deleteDialog.type === "equipment" ? "设备" : "夹具"}
+          「{deleteDialog.name}」吗？此操作不可撤销。
+        </p>
+      </Modal>
     </div>
   )
 }
