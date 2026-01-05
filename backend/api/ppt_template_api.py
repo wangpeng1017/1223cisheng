@@ -58,70 +58,70 @@ def extract_placeholders_from_text(text: str) -> List[str]:
 
 
 
-def generate_thumbnail(file_path: str, output_dir: Path) -> str:
-    """使用 LibreOffice 将 PPT 第一页转换为缩略图"""
-    import subprocess
-    import os
-    
-    output_dir.mkdir(parents=True, exist_ok=True)
-    base_name = Path(file_path).stem
-    thumbnail_path = output_dir / f"{base_name}_thumb.png"
-    
-    # 如果缩略图已存在，直接返回
-    if thumbnail_path.exists():
-        return str(thumbnail_path)
-    
-    # 使用 LibreOffice 转换为 PDF
-    temp_dir = Path("/tmp/ppt_convert")
-    temp_dir.mkdir(exist_ok=True)
-    
-    try:
-        # 转换为 PDF
-        subprocess.run([
-            "libreoffice", "--headless", "--convert-to", "pdf",
-            "--outdir", str(temp_dir),
-            str(file_path)
-        ], check=True, timeout=30, capture_output=True)
-        
-        pdf_file = temp_dir / f"{base_name}.pdf"
-        
-        # 使用 pdftoppm 或 convert 将 PDF 第一页转为图片
-        img_path = temp_dir / f"{base_name}-1.png"
-        
-        # 尝试使用 pdftoppm (poppler-utils)
-        try:
-            subprocess.run([
-                "pdftoppm", "-png", "-f", "1", "-singlefile",
-                str(pdf_file), str(temp_dir / base_name)
-            ], check=True, timeout=10, capture_output=True)
-            if img_path.exists():
-                img_path.rename(thumbnail_path)
-                return str(thumbnail_path)
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            pass
-        
-        # 尝试使用 convert (ImageMagick)
-        try:
-            subprocess.run([
-                "convert", f"{pdf_file}[0]", str(thumbnail_path)
-            ], check=True, timeout=10, capture_output=True)
-            if thumbnail_path.exists():
-                return str(thumbnail_path)
-        except (FileNotFoundError, subprocess.CalledProcessError):
-            pass
-        
-    except Exception as e:
-        print(f"Thumbnail generation failed: {e}")
-    finally:
-        # 清理临时文件
-        for f in temp_dir.glob("*"):
-            try:
-                f.unlink()
-            except:
-                pass
-    
-    return ""
 
+    def generate_thumbnail(file_path: str, output_dir: Path) -> str:
+        """使用 LibreOffice 将 PPT 第一页转换为缩略图"""
+        import subprocess
+        import os
+    
+        output_dir.mkdir(parents=True, exist_ok=True)
+        base_name = Path(file_path).stem
+        thumbnail_path = output_dir / f"{base_name}_thumb.png"
+    
+        # 如果缩略图已存在，直接返回
+        if thumbnail_path.exists():
+            return str(thumbnail_path)
+    
+        # 使用 LibreOffice 转换为 PDF
+        temp_dir = Path("/tmp/ppt_convert")
+        temp_dir.mkdir(exist_ok=True)
+    
+        try:
+            # 转换为 PDF
+            subprocess.run([
+                "libreoffice", "--headless", "--convert-to", "pdf",
+                "--outdir", str(temp_dir),
+                str(file_path)
+            ], check=True, timeout=30, capture_output=True)
+    
+            pdf_file = temp_dir / f"{base_name}.pdf"
+    
+            # 使用 pdftoppm (poppler-utils) 转换 PDF 第一页为 PNG
+            try:
+                subprocess.run([
+                    "pdftoppm", "-png", "-r", "150", "-singlefile",
+                    str(pdf_file), str(temp_dir / base_name)
+                ], check=True, timeout=10, capture_output=True)
+                # pdftoppm -singlefile 输出为 base_name.png
+                single_img_path = temp_dir / f"{base_name}.png"
+                if single_img_path.exists():
+                    single_img_path.rename(thumbnail_path)
+                    return str(thumbnail_path)
+            except (FileNotFoundError, subprocess.CalledProcessError) as e:
+                print(f"pdftoppm failed: {e}")
+    
+            # 尝试使用 convert (ImageMagick)
+            try:
+                subprocess.run([
+                    "convert", f"{pdf_file}[0]", str(thumbnail_path)
+                ], check=True, timeout=10, capture_output=True)
+                if thumbnail_path.exists():
+                    return str(thumbnail_path)
+            except (FileNotFoundError, subprocess.CalledProcessError) as e:
+                print(f"convert failed: {e}")
+    
+        except Exception as e:
+            print(f"Thumbnail generation failed: {e}")
+        finally:
+            # 清理临时文件
+            for f in temp_dir.glob("*"):
+                try:
+                    f.unlink()
+                except:
+                    pass
+    
+        return ""
+    
 
 def parse_ppt_template(file_path: str) -> Dict[str, Any]:
     if Presentation is None:
