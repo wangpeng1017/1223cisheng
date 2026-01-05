@@ -1,12 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Upload, FileText, Trash2, Eye, Check, Download } from "lucide-react"
+import { Button, Card, Input, Modal, Upload, message } from "antd"
+import { UploadOutlined, FileTextOutlined, DeleteOutlined, EyeOutlined, CheckOutlined, DownloadOutlined } from "@ant-design/icons"
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://8.130.182.148:8001/api"
 
@@ -81,30 +77,36 @@ export function PPTTemplateUpload({
         setTemplates([...templates, newTemplate])
         setSelectedFile(null)
         setTemplateName("")
-        alert("模板上传成功！")
+        message.success("模板上传成功！")
       } else {
         const err = await res.json()
-        alert("上传失败: " + (err.detail || "未知错误"))
+        message.error("上传失败: " + (err.detail || "未知错误"))
       }
     } catch (e) {
       console.error("上传失败:", e)
-      alert("上传失败，请重试")
+      message.error("上传失败，请重试")
     } finally {
       setUploading(false)
     }
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm("确定删除此模板？")) return
-
-    try {
-      const res = await fetch(API_BASE + "/ppt/templates/" + id, { method: "DELETE" })
-      if (res.ok) {
-        setTemplates(templates.filter(t => t.id !== id))
+    Modal.confirm({
+      title: "确认删除",
+      content: "确定删除此模板？",
+      onOk: async () => {
+        try {
+          const res = await fetch(API_BASE + "/ppt/templates/" + id, { method: "DELETE" })
+          if (res.ok) {
+            setTemplates(templates.filter(t => t.id !== id))
+            message.success("删除成功")
+          }
+        } catch (e) {
+          console.error("删除失败:", e)
+          message.error("删除失败")
+        }
       }
-    } catch (e) {
-      console.error("删除失败:", e)
-    }
+    })
   }
 
   const handlePreview = async (template: PPTTemplate) => {
@@ -141,7 +143,7 @@ export function PPTTemplateUpload({
       }
     } catch (e) {
       console.error("下载失败:", e)
-      alert("下载失败，请重试")
+      message.error("下载失败，请重试")
     }
   }
 
@@ -151,14 +153,16 @@ export function PPTTemplateUpload({
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Upload className="w-4 h-4" />
+      <Card
+        title={
+          <span className="flex items-center gap-2 text-sm">
+            <UploadOutlined />
             上传 PPT 模板
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
+          </span>
+        }
+        size="small"
+      >
+        <div className="space-y-3">
           <Input
             type="file"
             accept=".pptx,.ppt"
@@ -172,159 +176,150 @@ export function PPTTemplateUpload({
             disabled={uploading}
           />
           <Button
+            type="primary"
             onClick={handleUpload}
             disabled={!selectedFile || uploading}
-            className="w-full"
-            size="sm"
+            block
+            size="small"
           >
             {uploading ? "上传中..." : "上传模板"}
           </Button>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-gray-500">
             支持 .pptx 格式，上传后将自动解析占位符（格式：[名称]）
           </p>
-        </CardContent>
+        </div>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <FileText className="w-4 h-4" />
+      <Card
+        title={
+          <span className="flex items-center gap-2 text-sm">
+            <FileTextOutlined />
             {entityType === "equipment" ? "设备" : "夹具"}模板库
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {templates.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">暂无模板</p>
-          ) : (
-            <div className="grid grid-cols-2 gap-3">
-              {templates.map((template) => (
+          </span>
+        }
+        size="small"
+      >
+        {templates.length === 0 ? (
+          <p className="text-sm text-gray-400 text-center py-4">暂无模板</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {templates.map((template) => (
+              <div
+                key={template.id}
+                className={`relative group rounded-lg border transition-all ${selectedTemplateId === template.id ? "border-blue-500 bg-blue-50" : "hover:bg-gray-50"}`}
+              >
                 <div
-                  key={template.id}
-                  className={"relative group rounded-lg border transition-all " + (selectedTemplateId === template.id ? "border-primary bg-primary/5" : "hover:bg-muted/50")}
+                  className="aspect-video bg-gray-100 rounded-t-lg flex items-center justify-center cursor-pointer overflow-hidden"
+                  onClick={() => handlePreview(template)}
                 >
-                  <div
-                    className="aspect-video bg-muted rounded-t-lg flex items-center justify-center cursor-pointer overflow-hidden"
-                    onClick={() => handlePreview(template)}
-                  >
-                    <FileText className="w-8 h-8 text-muted-foreground" />
-                  </div>
-
-                  <div className="p-2">
-                    <p className="text-xs font-medium truncate">{template.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {template.slide_count} 页
-                    </p>
-                  </div>
-
-                  <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => handlePreview(template)}
-                      title="预览"
-                    >
-                      <Eye className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => handleDownloadTemplate(template)}
-                      title="下载编辑"
-                    >
-                      <Download className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => handleDelete(template.id)}
-                      title="删除"
-                    >
-                      <Trash2 className="w-3 h-3 text-destructive" />
-                    </Button>
-                  </div>
-
-                  {onSelect && (
-                    <Button
-                      variant={selectedTemplateId === template.id ? "default" : "outline"}
-                      size="sm"
-                      className="w-full mt-1"
-                      onClick={() => handleSelectTemplate(template.id, 1)}
-                    >
-                      {selectedTemplateId === template.id ? <Check className="w-3 h-3 mr-1" /> : null}
-                      选择
-                    </Button>
-                  )}
+                  <FileTextOutlined className="text-2xl text-gray-400" />
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
 
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center justify-between">
-              <span>模板预览 - {previewTemplate?.name}</span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => previewTemplate && handleDownloadTemplate(previewTemplate)}
-                >
-                  <Download className="w-4 h-4 mr-1" />
-                  下载编辑
-                </Button>
-              </div>
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {thumbnailUrl && (
-              <div className="border rounded-lg p-4 bg-muted/30">
-                <p className="text-sm font-medium mb-2">模板预览图</p>
-                <img
-                  src={thumbnailUrl}
-                  alt="Template preview"
-                  className="w-full h-auto rounded border"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%2394a3b8'%3E预览图生成中...%3C/text%3E%3C/svg%3E"
-                  }}
-                />
-              </div>
-            )}
-
-            {slides.map((slide) => (
-              <Card key={slide.index}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">第 {slide.index} 页</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground mb-2">
-                    {slide.text_preview || "无文本内容"}
+                <div className="p-2">
+                  <p className="text-xs font-medium truncate">{template.name}</p>
+                  <p className="text-xs text-gray-500">
+                    {template.slide_count} 页
                   </p>
-                  {slide.placeholders.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {slide.placeholders.map((ph, i) => (
-                        <span
-                          key={i}
-                          className="px-2 py-1 bg-primary/10 text-primary text-xs rounded"
-                        >
-                          [{ph}]
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                </div>
+
+                <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<EyeOutlined />}
+                    onClick={() => handlePreview(template)}
+                    title="预览"
+                  />
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<DownloadOutlined />}
+                    onClick={() => handleDownloadTemplate(template)}
+                    title="下载编辑"
+                  />
+                  <Button
+                    type="text"
+                    size="small"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDelete(template.id)}
+                    title="删除"
+                  />
+                </div>
+
+                {onSelect && (
+                  <Button
+                    type={selectedTemplateId === template.id ? "primary" : "default"}
+                    size="small"
+                    block
+                    className="mt-1"
+                    onClick={() => handleSelectTemplate(template.id, 1)}
+                    icon={selectedTemplateId === template.id ? <CheckOutlined /> : null}
+                  >
+                    选择
+                  </Button>
+                )}
+              </div>
             ))}
           </div>
-        </DialogContent>
-      </Dialog>
+        )}
+      </Card>
+
+      <Modal
+        title={`模板预览 - ${previewTemplate?.name}`}
+        open={previewOpen}
+        onCancel={() => setPreviewOpen(false)}
+        width={800}
+        footer={[
+          <Button
+            key="download"
+            icon={<DownloadOutlined />}
+            onClick={() => previewTemplate && handleDownloadTemplate(previewTemplate)}
+          >
+            下载编辑
+          </Button>,
+          <Button key="close" onClick={() => setPreviewOpen(false)}>
+            关闭
+          </Button>
+        ]}
+      >
+        <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+          {thumbnailUrl && (
+            <div className="border rounded-lg p-4 bg-gray-50">
+              <p className="text-sm font-medium mb-2">模板预览图</p>
+              <img
+                src={thumbnailUrl}
+                alt="Template preview"
+                className="w-full h-auto rounded border"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement
+                  target.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%23f1f5f9' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%2394a3b8'%3E预览图生成中...%3C/text%3E%3C/svg%3E"
+                }}
+              />
+            </div>
+          )}
+
+          {slides.map((slide) => (
+            <Card key={slide.index} size="small" title={`第 ${slide.index} 页`}>
+              <p className="text-sm text-gray-500 mb-2">
+                {slide.text_preview || "无文本内容"}
+              </p>
+              {slide.placeholders.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {slide.placeholders.map((ph, i) => (
+                    <span
+                      key={i}
+                      className="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded"
+                    >
+                      [{ph}]
+                    </span>
+                  ))}
+                </div>
+              )}
+            </Card>
+          ))}
+        </div>
+      </Modal>
     </div>
   )
 }

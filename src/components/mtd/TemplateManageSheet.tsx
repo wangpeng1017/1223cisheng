@@ -1,13 +1,9 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet"
+import { useState } from "react"
+import { Drawer, Button } from "antd"
 import { PPTTemplateUpload } from "@/components/ppt-template-upload"
 import type { PPTTemplate } from "@/components/ppt-template-upload"
-
-const API_BASE = "http://8.130.182.148:8001/api"
 
 interface TemplateManageSheetProps {
   entityType: "equipment" | "fixture"
@@ -33,24 +29,22 @@ export function TemplateManageSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>{entityType === "equipment" ? "设备" : "夹具"}模板管理</SheetTitle>
-        </SheetHeader>
-
-        <div className="py-4">
-          <PPTTemplateUpload
-            entityType={entityType}
-            onSelect={handleSelectTemplate}
-            selectedTemplateId={selectedTemplate || undefined}
-          />
+    <Drawer
+      title={`${entityType === "equipment" ? "设备" : "夹具"}模板管理`}
+      open={open}
+      onClose={() => onOpenChange(false)}
+      width={480}
+      footer={
+        <div className="flex justify-end">
+          <Button onClick={() => onOpenChange(false)}>关闭</Button>
         </div>
-
-        <SheetFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>关闭</Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+      }
+    >
+      <PPTTemplateUpload
+        entityType={entityType}
+        onSelect={handleSelectTemplate}
+        selectedTemplateId={selectedTemplate || undefined}
+      />
+    </Drawer>
   )
 }
