@@ -144,7 +144,7 @@ export function FixtureSheet({
           <SheetTitle>{fixture ? "编辑夹具" : "添加夹具"}</SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 px-4 py-4">
           <div>
             <Label>夹具编号 *</Label>
             <Input

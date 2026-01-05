@@ -156,7 +156,7 @@ export function EquipmentSheet({
           <SheetTitle>{equipment ? "编辑设备" : "添加设备"}</SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 px-4 py-4">
           <div>
             <Label>设备名称 *</Label>
             <Input

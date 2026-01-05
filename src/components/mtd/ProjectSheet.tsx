@@ -155,7 +155,7 @@ export function ProjectSheet({ project, open, onOpenChange, onSave }: ProjectShe
           <SheetTitle>{project ? "编辑项目" : "新建项目"}</SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-4 py-4">
+        <div className="space-y-4 px-4 py-4">
           <div>
             <Label>项目名称 *</Label>
             <Input
