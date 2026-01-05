@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button, Card, Tabs, Table, Progress, Modal, message } from "antd"
 import type { TableProps, TabsProps } from "antd"
-import { Plus, Settings, Wrench, Package, FileDown, Trash2, Loader2, Edit2, FileText } from "lucide-react"
+import { Plus, Settings, Wrench, Package, Loader2 } from "lucide-react"
 import { ProjectSheet, EquipmentSheet, FixtureSheet, TemplateManageSheet } from "@/components/mtd"
 
 const API_BASE = "http://8.130.182.148:8001/api"
@@ -272,11 +272,11 @@ export default function MTDPage() {
       key: "action",
       align: "right",
       render: (_, record) => (
-        <Button.Group size="small">
-          <Button type="text" icon={<Edit2 size={14} />} onClick={() => openProjectSheet(record)} />
-          <Button type="text" icon={<FileDown size={14} />} onClick={() => generatePPT(record)} disabled={generating} />
-          <Button type="text" danger icon={<Trash2 size={14} />} onClick={() => confirmDelete("project", record.id, record.project_name)} />
-        </Button.Group>
+        <div className="flex gap-2 justify-end">
+          <Button type="link" size="small" onClick={() => openProjectSheet(record)}>编辑</Button>
+          <Button type="link" size="small" onClick={() => generatePPT(record)} disabled={generating}>生成PPT</Button>
+          <Button type="link" size="small" danger onClick={() => confirmDelete("project", record.id, record.project_name)}>删除</Button>
+        </div>
       )
     }
   ]
@@ -303,11 +303,11 @@ export default function MTDPage() {
       key: "action",
       align: "right",
       render: (_, record) => (
-        <Button.Group size="small">
-          <Button type="text" icon={<Edit2 size={14} />} onClick={() => openEquipmentSheet(record)} />
-          <Button type="text" icon={<FileText size={14} />} onClick={() => openTemplateSheet("equipment", record.id)} />
-          <Button type="text" danger icon={<Trash2 size={14} />} onClick={() => confirmDelete("equipment", record.id, record.name)} />
-        </Button.Group>
+        <div className="flex gap-2 justify-end">
+          <Button type="link" size="small" onClick={() => openEquipmentSheet(record)}>编辑</Button>
+          <Button type="link" size="small" onClick={() => openTemplateSheet("equipment", record.id)}>模板</Button>
+          <Button type="link" size="small" danger onClick={() => confirmDelete("equipment", record.id, record.name)}>删除</Button>
+        </div>
       )
     }
   ]
@@ -332,11 +332,11 @@ export default function MTDPage() {
       key: "action",
       align: "right",
       render: (_, record) => (
-        <Button.Group size="small">
-          <Button type="text" icon={<Edit2 size={14} />} onClick={() => openFixtureSheet(record)} />
-          <Button type="text" icon={<FileText size={14} />} onClick={() => openTemplateSheet("fixture", record.id)} />
-          <Button type="text" danger icon={<Trash2 size={14} />} onClick={() => confirmDelete("fixture", record.id, record.fixture_no)} />
-        </Button.Group>
+        <div className="flex gap-2 justify-end">
+          <Button type="link" size="small" onClick={() => openFixtureSheet(record)}>编辑</Button>
+          <Button type="link" size="small" onClick={() => openTemplateSheet("fixture", record.id)}>模板</Button>
+          <Button type="link" size="small" danger onClick={() => confirmDelete("fixture", record.id, record.fixture_no)}>删除</Button>
+        </div>
       )
     }
   ]
