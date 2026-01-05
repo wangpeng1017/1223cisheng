@@ -133,9 +133,8 @@ class MTDPPTGenerator:
                     if is_equipment_slide:
                         break
                 if is_equipment_slide:
-                    # 删除这个占位设备页
-                    rId = slide.slide_id
-                    self.prs.slides._sldIdLst.remove(rId)
+                    # 删除这个占位设备页 - 使用正确的方式删除幻灯片
+                    self._delete_slide(3)
                 else:
                     break
             else:
@@ -222,10 +221,8 @@ class MTDPPTGenerator:
         has_custom_template = any(f.get('ppt_template_id') for f in fixture_list)
 
         if has_custom_template:
-            # 删除默认夹具页
-            slide = self.prs.slides[fixture_slide_idx]
-            rId = slide.slide_id
-            self.prs.slides._sldIdLst.remove(rId)
+            # 删除默认夹具页 - 使用正确的方式删除幻灯片
+            self._delete_slide(fixture_slide_idx)
 
             # 为每个夹具插入自定义模板页
             insert_pos = fixture_slide_idx
@@ -294,10 +291,7 @@ class MTDPPTGenerator:
         slide_layout = self.prs.slide_layouts[0]  # 使用空白布局
         slide = self.prs.slides.add_slide(slide_layout)
         # 移动到正确位置
-        if insert_pos < len(self.prs.slides) - 1:
-            rId = slide.slide_id
-            self.prs.slides._sldIdLst.insert(insert_pos, rId)
-            self.prs.slides._sldIdLst.pop()
+        self._move_slide_to_position(len(self.prs.slides) - 1, insert_pos)
 
     def _find_fixture_slide_position(self) -> Optional[int]:
         """找到夹具页的位置"""
@@ -307,6 +301,27 @@ class MTDPPTGenerator:
                     if 'fixture' in shape.text.lower() or '夹具' in shape.text:
                         return idx
         return None
+
+    def _delete_slide(self, slide_index: int):
+        """删除指定索引的幻灯片"""
+        if 0 <= slide_index < len(self.prs.slides):
+            slide = self.prs.slides[slide_index]
+            # 获取幻灯片的 rId 元素（不是整数 ID）
+            rId = self.prs.slides._sldIdLst[slide_index]
+            self.prs.part.drop_rel(rId.rId)
+            self.prs.slides._sldIdLst.remove(rId)
+
+    def _move_slide_to_position(self, from_index: int, to_index: int):
+        """将幻灯片从一个位置移动到另一个位置"""
+        if from_index == to_index:
+            return
+        if 0 <= from_index < len(self.prs.slides) and 0 <= to_index < len(self.prs.slides):
+            # 获取要移动的幻灯片元素
+            slide_elem = self.prs.slides._sldIdLst[from_index]
+            # 从原位置移除
+            self.prs.slides._sldIdLst.remove(slide_elem)
+            # 插入到新位置
+            self.prs.slides._sldIdLst.insert(to_index, slide_elem)
 
     def _copy_slide(self, source_slide, target_prs, insert_pos: int):
         """复制幻灯片到目标演示文稿"""
@@ -320,9 +335,10 @@ class MTDPPTGenerator:
 
         # 移动到正确位置
         if insert_pos < len(target_prs.slides) - 1:
-            rId = new_slide.slide_id
-            target_prs.slides._sldIdLst.insert(insert_pos, rId)
-            target_prs.slides._sldIdLst.pop()
+            # 获取新添加的幻灯片元素（在最后位置）
+            slide_elem = target_prs.slides._sldIdLst[-1]
+            target_prs.slides._sldIdLst.remove(slide_elem)
+            target_prs.slides._sldIdLst.insert(insert_pos, slide_elem)
 
     def _copy_shape(self, shape, target_slide):
         """复制形状到目标幻灯片"""
