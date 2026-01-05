@@ -112,9 +112,10 @@ def update_project(project_id: int, project: ProjectCreate, db: Session = Depend
     db.commit()
     db.refresh(db_project)
     return db_project
+
 @router.post("/projects/{project_id}/generate-ppt")
 def generate_ppt(project_id: int, db: Session = Depends(get_db)):
-    """生成 MTD PPT"""
+    """生成 MTD PPT - 支持设备/夹具自定义模板"""
     project = db.query(MTDProject).filter(MTDProject.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
@@ -126,15 +127,15 @@ def generate_ppt(project_id: int, db: Session = Depends(get_db)):
     if project.fai_extraction_id:
         fai_items = db.query(FAIItem).filter(FAIItem.extraction_id == project.fai_extraction_id).all()
 
-    # 转换为字典
+    # 转换为字典（包含模板信息）
     project_dict = {
         "project_name": project.project_name,
         "part_number": project.part_number,
         "vendor": project.vendor,
         "revision": project.revision
     }
-    equipment_dicts = [{"id": e.id, "name": e.name, "manufacturer": e.manufacturer, "model": e.model, "specs": e.specs} for e in equipment_list]
-    fixture_dicts = [{"id": f.id, "fixture_no": f.fixture_no, "size": f.size, "material": f.material} for f in fixture_list]
+    equipment_dicts = [{"id": e.id, "name": e.name, "manufacturer": e.manufacturer, "model": e.model, "specs": e.specs, "ppt_template_id": e.ppt_template_id, "ppt_slide_index": e.ppt_slide_index} for e in equipment_list]
+    fixture_dicts = [{"id": f.id, "fixture_no": f.fixture_no, "size": f.size, "material": f.material, "ppt_template_id": f.ppt_template_id, "ppt_slide_index": f.ppt_slide_index} for f in fixture_list]
     fai_dicts = [{
         "fai_num": f.fai_num, "spc": f.spc, "specification": f"{f.nom}±{f.upper_tol}" if f.nom else "",
         "description": f.description, "cpk_method": f.cpk_method or "", "cpk_fixture": f.cpk_fixture or "No",
@@ -142,12 +143,12 @@ def generate_ppt(project_id: int, db: Session = Depends(get_db)):
         "location": f.location or "", "cross_check_by": f.cross_check_by or ""
     } for f in fai_items]
 
-    # 生成 PPT
+    # 生成 PPT（传入 db 以支持模板查询）
     output_filename = f"MTD_{project.project_name}_{project.part_number}_{datetime.now().strftime('%Y%m%d')}.pptx"
     output_path = os.path.join(tempfile.gettempdir(), output_filename)
 
     try:
-        generate_mtd_ppt(project_dict, equipment_dicts, fixture_dicts, fai_dicts, output_path)
+        generate_mtd_ppt(project_dict, equipment_dicts, fixture_dicts, fai_dicts, output_path, db=db)
         return FileResponse(output_path, filename=output_filename,
                           media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation")
     except Exception as e:

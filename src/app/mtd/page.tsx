@@ -4,7 +4,6 @@ import { useState, useEffect } from "react"
 import { Button, Card, Tabs, Table, Progress, Modal, message } from "antd"
 import type { TableProps, TabsProps } from "antd"
 import { Plus, Settings, Wrench, Package, FileDown, Trash2, Loader2, Edit2, FileText } from "lucide-react"
-import { generateMTDPPT } from "@/lib/ppt-generator"
 import { ProjectSheet, EquipmentSheet, FixtureSheet, TemplateManageSheet } from "@/components/mtd"
 
 const API_BASE = "http://8.130.182.148:8001/api"
@@ -199,37 +198,38 @@ export default function MTDPage() {
     }
   }
 
-  // 生成 PPT
+  // 生成 PPT - 调用后端 API（支持设备/夹具自定义模板）
   const generatePPT = async (project: MTDProject) => {
     setGenerating(true)
     setProgress(0)
-    setProgressMsg("准备生成...")
+    setProgressMsg("正在生成 PPT...")
 
     try {
-      const selectedEquipment = equipment.filter(eq => project.equipment_ids?.includes(eq.id))
-      const selectedFixtures = fixtures.filter(f => project.fixture_ids?.includes(f.id))
+      const res = await fetch(`${API_BASE}/mtd/projects/${project.id}/generate-ppt`, {
+        method: "POST"
+      })
 
-      let faiItems: FAIItem[] = []
-      if (project.fai_extraction_id) {
-        const res = await fetch(`${API_BASE}/extractions/${project.fai_extraction_id}/items`)
-        if (res.ok) faiItems = await res.json()
+      setProgress(50)
+      setProgressMsg("下载 PPT...")
+
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `MTD_${project.project_name}_${project.part_number}_${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.pptx`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+
+        setProgress(100)
+        setProgressMsg("PPT 生成完成！")
+        message.success("PPT 生成成功")
+      } else {
+        const err = await res.json()
+        throw new Error(err.detail || "生成失败")
       }
-
-      await generateMTDPPT(
-        {
-          project_name: project.project_name,
-          part_number: project.part_number,
-          vendor: project.vendor || "",
-          revision: project.revision || "01"
-        },
-        selectedEquipment,
-        selectedFixtures,
-        faiItems,
-        (prog, msg) => { setProgress(prog); setProgressMsg(msg) }
-      )
-
-      setProgressMsg("PPT 生成完成！")
-      message.success("PPT 生成成功")
     } catch (error) {
       message.error("生成 PPT 失败: " + error)
     } finally {
@@ -424,7 +424,7 @@ export default function MTDPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold">MTD 项目管理</h1>
-          <p className="text-gray-500">管理 MTD 项目，自动生成测试文档 PPT</p>
+          <p className="text-gray-500">管理 MTD 项目，自动生成测试文档 PPT（支持设备/夹具自定义模板）</p>
         </div>
       </div>
 
