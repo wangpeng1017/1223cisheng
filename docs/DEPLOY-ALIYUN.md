@@ -20,9 +20,37 @@
 - 自动重启机制：内存超限后 PM2 自动重启
 - 监控：定期运行 `pm2 monit` 检查资源使用
 
+## 二、认证信息
+
+> ⚠️ **重要**: 认证信息存储在项目根目录的 `AUTH.conf` 文件中（不提交到 Git）
+
+### 认证信息位置
+
+```bash
+# 查看认证信息
+cat AUTH.conf
+```
+
+### Git 远程仓库
+
+```bash
+# 仓库地址
+https://github.com/wangpeng1017/1223cisheng
+
+# 推送代码时从 AUTH.conf 获取 token
+git push
+```
+
+### SSH 连接
+
+```bash
+# 服务器地址和密码从 AUTH.conf 获取
+ssh root@8.130.182.148
+```
+
 ---
 
-## 二、快速部署
+## 三、快速部署
 
 ### 方式1: 使用部署脚本（推荐）
 
@@ -66,7 +94,7 @@ pm2 save
 
 ---
 
-## 三、首次部署（服务器初始化）
+## 四、首次部署（服务器初始化）
 
 ### 1. 安装 Node.js 18.x
 
@@ -119,7 +147,7 @@ chmod +x scripts/start-server.sh
 
 ---
 
-## 四、PM2 配置说明
+## 五、PM2 配置说明
 
 配置文件：`ecosystem.config.cjs`
 
