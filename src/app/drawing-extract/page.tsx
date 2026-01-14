@@ -41,6 +41,9 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
+import { PPTPreviewDialog } from "@/components/ppt/PPTPreviewDialog"
+import { transformAllData } from "@/lib/services/ppt-data-transformer"
+import type { PPTGenerationData } from "@/lib/types/ppt"
 
 // API 基础URL - 生产环境需要修改
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8001"
@@ -144,6 +147,9 @@ export default function DrawingExtractPage() {
     const [extractionId, setExtractionId] = React.useState<number | null>(null)
     const [history, setHistory] = React.useState<ExtractionHistory[]>([])
     const [showHistory, setShowHistory] = React.useState(false)
+    const [isGeneratingPPT, setIsGeneratingPPT] = React.useState(false)
+    const [showPPTPreview, setShowPPTPreview] = React.useState(false)
+    const [pptData, setPptData] = React.useState<PPTGenerationData | null>(null)
     const fileInputRef = React.useRef<HTMLInputElement>(null)
 
     // 加载历史记录
@@ -295,6 +301,63 @@ export default function DrawingExtractPage() {
         URL.revokeObjectURL(url)
         toast.success("CSV导出成功")
     }
+
+
+
+    // 生成PPT
+    const generatePPT = async () => {
+        if (faiData.length === 0) {
+            toast.error("没有可生成的数据")
+            return
+        }
+
+        // 转换数据并打开预览对话框
+        const data = transformAllData(faiData, currentFileName)
+        setPptData(data)
+        setShowPPTPreview(true)
+    }
+
+    // 确认生成PPT
+    const handleConfirmGeneratePPT = async (data: PPTGenerationData) => {
+        setIsGeneratingPPT(true)
+
+        try {
+            // 调用PPT生成API
+            const res = await fetch('/api/generate-ppt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+
+            const result = await res.json()
+
+            if (res.ok) {
+                toast.success("PPT生成成功", {
+                    description: `共 ${result.pageCount} 页`
+                })
+
+                // 自动下载
+                const a = document.createElement('a')
+                a.href = result.downloadUrl
+                a.download = result.filename
+                a.click()
+            } else {
+                toast.error("PPT生成失败", {
+                    description: result.error || '未知错误'
+                })
+            }
+        } catch (error) {
+            console.error("生成PPT失败:", error)
+            toast.error("PPT生成失败", {
+                description: "请稍后重试"
+            })
+        } finally {
+            setIsGeneratingPPT(false)
+        }
+    }
+
 
     // 切换到备选数据块（完整替换所有字段）
     const switchToAlternative = (index: number, alt: Alternative) => {
@@ -460,6 +523,14 @@ export default function DrawingExtractPage() {
                                     <Download className="h-4 w-4" />
                                     导出CSV
                                 </Button>
+                                <Button variant="default" size="sm" className="gap-2" onClick={generatePPT} disabled={isGeneratingPPT}>
+                                    {isGeneratingPPT ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <FileText className="h-4 w-4" />
+                                    )}
+                                    {isGeneratingPPT ? '生成中...' : '生成PPT'}
+                                </Button>
                             </CardHeader>
                             <CardContent>
                                 <div className="rounded-lg border overflow-hidden">
@@ -571,6 +642,18 @@ export default function DrawingExtractPage() {
                         </Card>
                     )}
                 </div>
+                    {/* PPT预览对话框 */}
+                    {pptData && (
+                        <PPTPreviewDialog
+                            open={showPPTPreview}
+                            onOpenChange={setShowPPTPreview}
+                            data={pptData}
+                            onConfirm={handleConfirmGeneratePPT}
+                            isGenerating={isGeneratingPPT}
+                        />
+                    )}
+
+
             </main>
         </div>
     )
