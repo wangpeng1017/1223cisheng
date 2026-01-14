@@ -338,11 +338,15 @@ export default function DrawingExtractPage() {
                     description: `共 ${result.pageCount} 页`
                 })
 
-                // 自动下载
+                // 自动下载 - 使用完整URL
+                const downloadUrl = `${window.location.origin}${result.downloadUrl}`
                 const a = document.createElement('a')
-                a.href = result.downloadUrl
+                a.href = downloadUrl
                 a.download = result.filename
+                a.style.display = 'none'
+                document.body.appendChild(a)
                 a.click()
+                document.body.removeChild(a)
             } else {
                 toast.error("PPT生成失败", {
                     description: result.error || '未知错误'
