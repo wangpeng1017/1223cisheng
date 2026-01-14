@@ -10,6 +10,7 @@ from database import init_db
 from api.extract import router as extract_router
 from api.mtd import router as mtd_router
 from api.ppt_template_api import router as ppt_template_router
+from api.ppt_fill_api import router as ppt_fill_router
 
 # 创建应用
 app = FastAPI(
@@ -38,6 +39,7 @@ app.add_middleware(
 app.include_router(extract_router)
 app.include_router(mtd_router)
 app.include_router(ppt_template_router)
+app.include_router(ppt_fill_router)
 
 
 @app.on_event("startup")
