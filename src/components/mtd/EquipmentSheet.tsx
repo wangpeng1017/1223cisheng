@@ -1,12 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileText } from "lucide-react"
+import { Drawer, Button, Input, Select } from "antd"
+import { FileTextOutlined } from "@ant-design/icons"
 
 const API_BASE = "http://8.130.182.148:8001/api"
 
@@ -150,108 +146,99 @@ export function EquipmentSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>{equipment ? "编辑设备" : "添加设备"}</SheetTitle>
-        </SheetHeader>
+    <Drawer
+      title={equipment ? "编辑设备" : "添加设备"}
+      open={open}
+      onClose={() => onOpenChange(false)}
+      width={480}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button onClick={() => onOpenChange(false)}>取消</Button>
+          <Button type="primary" onClick={handleSave} loading={loading}>保存</Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <div className="mb-1 text-sm font-medium">设备名称 *</div>
+          <Input
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            placeholder="KEYENCE"
+          />
+        </div>
 
-        <div className="space-y-4 px-4 py-4">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label>设备名称 *</Label>
+            <div className="mb-1 text-sm font-medium">制造商</div>
             <Input
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              placeholder="KEYENCE"
+              value={formData.manufacturer}
+              onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
+              placeholder="KEYENCE Corp"
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>制造商</Label>
-              <Input
-                value={formData.manufacturer}
-                onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                placeholder="KEYENCE Corp"
-              />
-            </div>
-            <div>
-              <Label>型号</Label>
-              <Input
-                value={formData.model}
-                onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                placeholder="IM7010"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <Label>量程</Label>
-              <Input
-                value={formData.range}
-                onChange={(e) => setFormData({ ...formData, range: e.target.value })}
-                placeholder="0-100mm"
-              />
-            </div>
-            <div>
-              <Label>分辨率</Label>
-              <Input
-                value={formData.resolution}
-                onChange={(e) => setFormData({ ...formData, resolution: e.target.value })}
-                placeholder="0.01mm"
-              />
-            </div>
-            <div>
-              <Label>精度</Label>
-              <Input
-                value={formData.accuracy}
-                onChange={(e) => setFormData({ ...formData, accuracy: e.target.value })}
-                placeholder="±0.001mm"
-              />
-            </div>
-          </div>
-
           <div>
-            <Label>PPT 模板</Label>
-            <div className="flex gap-2">
-              <Select
-                value={formData.ppt_template_id?.toString() || ""}
-                onValueChange={(v) => setFormData({ ...formData, ppt_template_id: parseInt(v) })}
-              >
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="选择模板" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id.toString()}>
-                      {t.name} ({t.slide_count}页)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  onOpenChange(false)
-                  onOpenTemplateManage()
-                }}
-                title="管理模板"
-              >
-                <FileText className="h-4 w-4" />
-              </Button>
-            </div>
+            <div className="mb-1 text-sm font-medium">型号</div>
+            <Input
+              value={formData.model}
+              onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+              placeholder="IM7010"
+            />
           </div>
         </div>
 
-        <SheetFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? "保存中..." : "保存"}
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <div className="mb-1 text-sm font-medium">量程</div>
+            <Input
+              value={formData.range}
+              onChange={(e) => setFormData({ ...formData, range: e.target.value })}
+              placeholder="0-100mm"
+            />
+          </div>
+          <div>
+            <div className="mb-1 text-sm font-medium">分辨率</div>
+            <Input
+              value={formData.resolution}
+              onChange={(e) => setFormData({ ...formData, resolution: e.target.value })}
+              placeholder="0.01mm"
+            />
+          </div>
+          <div>
+            <div className="mb-1 text-sm font-medium">精度</div>
+            <Input
+              value={formData.accuracy}
+              onChange={(e) => setFormData({ ...formData, accuracy: e.target.value })}
+              placeholder="±0.001mm"
+            />
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-1 text-sm font-medium">PPT 模板</div>
+          <div className="flex gap-2">
+            <Select
+              value={formData.ppt_template_id}
+              onChange={(v) => setFormData({ ...formData, ppt_template_id: v })}
+              placeholder="选择模板"
+              className="flex-1"
+              allowClear
+              options={templates.map((t) => ({
+                value: t.id,
+                label: `${t.name} (${t.slide_count}页)`,
+              }))}
+            />
+            <Button
+              icon={<FileTextOutlined />}
+              onClick={() => {
+                onOpenChange(false)
+                onOpenTemplateManage()
+              }}
+              title="管理模板"
+            />
+          </div>
+        </div>
+      </div>
+    </Drawer>
   )
 }

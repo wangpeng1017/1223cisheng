@@ -1,13 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Checkbox } from "@/components/ui/checkbox"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Drawer, Button, Input, Select, Checkbox, Space } from "antd"
+import { FileTextOutlined } from "@ant-design/icons"
 
 const API_BASE = "http://8.130.182.148:8001/api"
 
@@ -149,123 +144,111 @@ export function ProjectSheet({ project, open, onOpenChange, onSave }: ProjectShe
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>{project ? "编辑项目" : "新建项目"}</SheetTitle>
-        </SheetHeader>
+    <Drawer
+      title={project ? "编辑项目" : "新建项目"}
+      open={open}
+      onClose={() => onOpenChange(false)}
+      width={480}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button onClick={() => onOpenChange(false)}>取消</Button>
+          <Button type="primary" onClick={handleSave} loading={loading}>保存</Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <div className="mb-1 text-sm font-medium">项目名称 *</div>
+          <Input
+            value={formData.project_name}
+            onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
+            placeholder="J510"
+          />
+        </div>
 
-        <div className="space-y-4 px-4 py-4">
+        <div>
+          <div className="mb-1 text-sm font-medium">料号 *</div>
+          <Input
+            value={formData.part_number}
+            onChange={(e) => setFormData({ ...formData, part_number: e.target.value })}
+            placeholder="160-06631-01"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <Label>项目名称 *</Label>
+            <div className="mb-1 text-sm font-medium">供应商</div>
             <Input
-              value={formData.project_name}
-              onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
-              placeholder="J510"
+              value={formData.vendor}
+              onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
+              placeholder="MAGSOUND"
             />
           </div>
-
           <div>
-            <Label>料号 *</Label>
+            <div className="mb-1 text-sm font-medium">版本</div>
             <Input
-              value={formData.part_number}
-              onChange={(e) => setFormData({ ...formData, part_number: e.target.value })}
-              placeholder="160-06631-01"
+              value={formData.revision}
+              onChange={(e) => setFormData({ ...formData, revision: e.target.value })}
+              placeholder="01"
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label>供应商</Label>
-              <Input
-                value={formData.vendor}
-                onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
-                placeholder="MAGSOUND"
-              />
-            </div>
-            <div>
-              <Label>版本</Label>
-              <Input
-                value={formData.revision}
-                onChange={(e) => setFormData({ ...formData, revision: e.target.value })}
-                placeholder="01"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label>FAI 数据源</Label>
-            <Select
-              value={formData.fai_extraction_id?.toString() || ""}
-              onValueChange={(v) => setFormData({ ...formData, fai_extraction_id: v ? parseInt(v) : null })}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="选择 FAI 提取记录" />
-              </SelectTrigger>
-              <SelectContent>
-                {extractions.map((ex) => (
-                  <SelectItem key={ex.id} value={ex.id.toString()}>
-                    {ex.file_name} ({ex.item_count} 项)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label>关联设备</Label>
-            <ScrollArea className="h-32 border rounded-md p-2">
-              <div className="space-y-2">
-                {equipment.map((eq) => (
-                  <div key={eq.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`eq-${eq.id}`}
-                      checked={formData.equipment_ids.includes(eq.id)}
-                      onCheckedChange={() => toggleEquipment(eq.id)}
-                    />
-                    <Label htmlFor={`eq-${eq.id}`} className="text-sm cursor-pointer">
-                      {eq.name} - {eq.model}
-                    </Label>
-                  </div>
-                ))}
-                {equipment.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">暂无设备</p>
-                )}
-              </div>
-            </ScrollArea>
-          </div>
-
-          <div>
-            <Label>关联夹具</Label>
-            <ScrollArea className="h-32 border rounded-md p-2">
-              <div className="space-y-2">
-                {fixtures.map((f) => (
-                  <div key={f.id} className="flex items-center space-x-2">
-                    <Checkbox
-                      id={`fix-${f.id}`}
-                      checked={formData.fixture_ids.includes(f.id)}
-                      onCheckedChange={() => toggleFixture(f.id)}
-                    />
-                    <Label htmlFor={`fix-${f.id}`} className="text-sm cursor-pointer">
-                      {f.fixture_no} - {f.size}
-                    </Label>
-                  </div>
-                ))}
-                {fixtures.length === 0 && (
-                  <p className="text-sm text-muted-foreground text-center py-4">暂无夹具</p>
-                )}
-              </div>
-            </ScrollArea>
           </div>
         </div>
 
-        <SheetFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? "保存中..." : "保存"}
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        <div>
+          <div className="mb-1 text-sm font-medium">FAI 数据源</div>
+          <Select
+            value={formData.fai_extraction_id}
+            onChange={(v) => setFormData({ ...formData, fai_extraction_id: v })}
+            placeholder="选择 FAI 提取记录"
+            className="w-full"
+            allowClear
+            options={extractions.map((ex) => ({
+              value: ex.id,
+              label: `${ex.file_name} (${ex.item_count} 项)`,
+            }))}
+          />
+        </div>
+
+        <div>
+          <div className="mb-1 text-sm font-medium">关联设备</div>
+          <div className="h-32 overflow-auto border rounded-md p-2">
+            <Space direction="vertical">
+              {equipment.map((eq) => (
+                <Checkbox
+                  key={eq.id}
+                  checked={formData.equipment_ids.includes(eq.id)}
+                  onChange={() => toggleEquipment(eq.id)}
+                >
+                  {eq.name} - {eq.model}
+                </Checkbox>
+              ))}
+              {equipment.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-4">暂无设备</p>
+              )}
+            </Space>
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-1 text-sm font-medium">关联夹具</div>
+          <div className="h-32 overflow-auto border rounded-md p-2">
+            <Space direction="vertical">
+              {fixtures.map((f) => (
+                <Checkbox
+                  key={f.id}
+                  checked={formData.fixture_ids.includes(f.id)}
+                  onChange={() => toggleFixture(f.id)}
+                >
+                  {f.fixture_no} - {f.size}
+                </Checkbox>
+              ))}
+              {fixtures.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-4">暂无夹具</p>
+              )}
+            </Space>
+          </div>
+        </div>
+      </div>
+    </Drawer>
   )
 }

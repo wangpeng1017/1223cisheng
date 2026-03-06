@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          Int            @id @default(autoincrement())
+  projectNo   String         @unique @map("project_no") @db.VarChar(50)
+  name        String         @db.VarChar(200)
+  productName String         @map("product_name") @db.VarChar(200)
+  productCode String         @map("product_code") @db.VarChar(50)
+  manager     String         @db.VarChar(50)
+  creator     String         @db.VarChar(50)
+  deadline    DateTime       @db.Date
+  status      ProjectStatus  @default(NOT_STARTED)
+  progress    Int            @default(0)
+  risk        RiskLevel      @default(LOW)
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+  tasks       ProjectTask[]
+
+  @@map("projects")
+}
+
+model ProjectTask {
+  id        Int        @id @default(autoincrement())
+  projectId Int        @map("project_id")
+  name      String     @db.VarChar(200)
+  owner     String     @db.VarChar(50)
+  progress  Int        @default(0)
+  status    TaskStatus @default(NOT_STARTED)
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_tasks")
+}
+
+enum ProjectStatus {
+  NOT_STARTED @map("未开始")
+  IN_PROGRESS @map("进行中")
+  WARNING     @map("预警")
+  DELAYED     @map("延期")
+  COMPLETED   @map("已完成")
+}
+
+enum RiskLevel {
+  LOW    @map("低")
+  MEDIUM @map("中")
+  HIGH   @map("高")
+}
+
+enum TaskStatus {
+  NOT_STARTED @map("未开始")
+  IN_PROGRESS @map("进行中")
+  COMPLETED   @map("已完成")
+}

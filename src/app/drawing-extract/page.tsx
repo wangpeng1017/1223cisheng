@@ -2,45 +2,21 @@
 
 import * as React from "react"
 import {
-    Table2,
-    Upload,
-    FileUp,
-    History,
-    User,
-    Download,
-    Trash2,
-    Loader2,
-    CheckCircle,
-    AlertCircle,
-    FileText,
-    ChevronDown
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { toast } from "sonner"
+    TableOutlined,
+    UploadOutlined,
+    CloudUploadOutlined,
+    HistoryOutlined,
+    UserOutlined,
+    DownloadOutlined,
+    DeleteOutlined,
+    LoadingOutlined,
+    CheckCircleOutlined,
+    ExclamationCircleOutlined,
+    FileTextOutlined,
+    DownOutlined,
+} from "@ant-design/icons"
+import { Button, Tag, Card, Table, Modal, App, Dropdown } from "antd"
+import type { TableProps, MenuProps } from "antd"
 import { PPTPreviewDialog } from "@/components/ppt/PPTPreviewDialog"
 import { transformAllData } from "@/lib/services/ppt-data-transformer"
 import type { PPTGenerationData } from "@/lib/types/ppt"
@@ -70,7 +46,7 @@ interface FAIItem {
     description: string | null
     page: number | null
     category: string | null
-    alternatives?: Alternative[]  // 备选数据块列表
+    alternatives?: Alternative[]
 }
 
 interface ExtractionHistory {
@@ -102,43 +78,6 @@ function parseAlternatives(description: string | null): { distance: string; alte
     return { distance, alternatives }
 }
 
-// 测量类型对应的符号
-// 测量类型对应的符号和颜色
-const typeSymbolMap: Record<string, string> = {
-    // 几何尺寸
-    '线轮廓度': '⌒',
-    '平面度': '▱',
-    '平行度': '//',
-    '圆角半径': 'R',
-    '厚度/距离': '±',
-    // 材料性能
-    '磁通密度(Br)': 'Br',
-    '矫顽力(Hcb)': 'Hcb',
-    '矫顽力(Hcj)': 'Hcj',
-    '最大能积(BHmax)': 'BH',
-    '硬度': 'HV',
-    // 表面处理
-    '光泽度': 'GU',
-    '粗糙度(Ra)': 'Ra',
-    '颜色(L)': 'L*',
-    '颜色(a)': 'a*',
-    '颜色(b)': 'b*',
-    // 工艺要求
-    '外观检验': '👁',
-    '盐雾测试': '🧪',
-    '文本规格': '📝',
-    '未识别': '-'
-}
-
-// 分类对应的颜色
-const categoryColorMap: Record<string, { bg: string; text: string; border: string }> = {
-    '几何尺寸': { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' },
-    '材料性能': { bg: 'bg-amber-50', text: 'text-amber-600', border: 'border-amber-200' },
-    '表面处理': { bg: 'bg-green-50', text: 'text-green-600', border: 'border-green-200' },
-    '工艺要求': { bg: 'bg-purple-50', text: 'text-purple-600', border: 'border-purple-200' },
-    '未分类': { bg: 'bg-slate-50', text: 'text-slate-500', border: 'border-slate-200' },
-}
-
 export default function DrawingExtractPage() {
     const [isDragging, setIsDragging] = React.useState(false)
     const [isUploading, setIsUploading] = React.useState(false)
@@ -151,6 +90,7 @@ export default function DrawingExtractPage() {
     const [showPPTPreview, setShowPPTPreview] = React.useState(false)
     const [pptData, setPptData] = React.useState<PPTGenerationData | null>(null)
     const fileInputRef = React.useRef<HTMLInputElement>(null)
+    const { message } = App.useApp()
 
     // 加载历史记录
     const loadHistory = async () => {
@@ -168,7 +108,7 @@ export default function DrawingExtractPage() {
     // 上传并提取PDF
     const handleUpload = async (file: File) => {
         if (!file.name.toLowerCase().endsWith('.pdf')) {
-            toast.error("仅支持PDF文件")
+            message.error("仅支持PDF文件")
             return
         }
 
@@ -190,18 +130,12 @@ export default function DrawingExtractPage() {
             if (res.ok && data.success) {
                 setFaiData(data.items)
                 setExtractionId(data.extraction_id)
-                toast.success(data.message, {
-                    description: `文件: ${file.name}`
-                })
+                message.success(`${data.message} | 文件: ${file.name}`)
             } else {
-                toast.error("提取失败", {
-                    description: data.detail || data.message
-                })
+                message.error(data.detail || data.message || "提取失败")
             }
         } catch (error) {
-            toast.error("网络错误", {
-                description: "无法连接到后端服务，请确认服务已启动"
-            })
+            message.error("网络错误：无法连接到后端服务，请确认服务已启动")
             console.error("上传失败:", error)
         } finally {
             setIsUploading(false)
@@ -246,10 +180,10 @@ export default function DrawingExtractPage() {
                 setCurrentFileName(data.file_name)
                 setExtractionId(id)
                 setShowHistory(false)
-                toast.info(`已加载: ${data.file_name}`)
+                message.info(`已加载: ${data.file_name}`)
             }
         } catch (error) {
-            toast.error("加载详情失败")
+            message.error("加载详情失败")
         }
     }
 
@@ -260,7 +194,7 @@ export default function DrawingExtractPage() {
                 method: 'DELETE'
             })
             if (res.ok) {
-                toast.success("删除成功")
+                message.success("删除成功")
                 loadHistory()
                 if (extractionId === id) {
                     setFaiData([])
@@ -269,7 +203,7 @@ export default function DrawingExtractPage() {
                 }
             }
         } catch (error) {
-            toast.error("删除失败")
+            message.error("删除失败")
         }
     }
 
@@ -299,19 +233,16 @@ export default function DrawingExtractPage() {
         a.download = `FAI_${currentFileName.replace('.pdf', '')}_${new Date().toISOString().slice(0, 10)}.csv`
         a.click()
         URL.revokeObjectURL(url)
-        toast.success("CSV导出成功")
+        message.success("CSV导出成功")
     }
-
-
 
     // 生成PPT
     const generatePPT = async () => {
         if (faiData.length === 0) {
-            toast.error("没有可生成的数据")
+            message.error("没有可生成的数据")
             return
         }
 
-        // 转换数据并打开预览对话框
         const data = transformAllData(faiData, currentFileName)
         setPptData(data)
         setShowPPTPreview(true)
@@ -322,7 +253,6 @@ export default function DrawingExtractPage() {
         setIsGeneratingPPT(true)
 
         try {
-            // 调用PPT生成API
             const res = await fetch('/api/generate-ppt', {
                 method: 'POST',
                 headers: {
@@ -334,11 +264,8 @@ export default function DrawingExtractPage() {
             const result = await res.json()
 
             if (res.ok) {
-                toast.success("PPT生成成功", {
-                    description: `共 ${result.pageCount} 页`
-                })
+                message.success(`PPT生成成功，共 ${result.pageCount} 页`)
 
-                // 自动下载 - 使用完整URL
                 const downloadUrl = `${window.location.origin}${result.downloadUrl}`
                 const a = document.createElement('a')
                 a.href = downloadUrl
@@ -348,22 +275,17 @@ export default function DrawingExtractPage() {
                 a.click()
                 document.body.removeChild(a)
             } else {
-                toast.error("PPT生成失败", {
-                    description: result.error || '未知错误'
-                })
+                message.error(result.error || 'PPT生成失败')
             }
         } catch (error) {
             console.error("生成PPT失败:", error)
-            toast.error("PPT生成失败", {
-                description: "请稍后重试"
-            })
+            message.error("PPT生成失败，请稍后重试")
         } finally {
             setIsGeneratingPPT(false)
         }
     }
 
-
-    // 切换到备选数据块（完整替换所有字段）
+    // 切换到备选数据块
     const switchToAlternative = (index: number, alt: Alternative) => {
         setFaiData(prev => prev.map((item, i) => {
             if (i === index) {
@@ -379,16 +301,83 @@ export default function DrawingExtractPage() {
             }
             return item
         }))
-        toast.success(`FAI ${faiData[index].fai_num} 已切换为 ${alt.measure_type}`)
+        message.success(`FAI ${faiData[index].fai_num} 已切换为 ${alt.measure_type}`)
     }
+
+    // 历史记录表格列
+    const historyColumns: TableProps<ExtractionHistory>["columns"] = [
+        { title: "文件名", dataIndex: "file_name", render: (t: string) => <span className="font-medium">{t}</span> },
+        { title: "提取时间", dataIndex: "upload_time", render: (t: string) => <span className="text-slate-500 text-xs">{new Date(t).toLocaleString('zh-CN')}</span> },
+        { title: "FAI数量", dataIndex: "item_count", render: (t: number) => <Tag>{t} 条</Tag> },
+        {
+            title: "操作", key: "action", align: "right", render: (_, record) => (
+                <div className="flex gap-1 justify-end">
+                    <Button type="link" size="small" onClick={() => loadExtractionDetail(record.id)}>查看</Button>
+                    <Button type="link" size="small" danger icon={<DeleteOutlined />} onClick={() => deleteExtraction(record.id)} />
+                </div>
+            )
+        },
+    ]
+
+    // FAI 数据表格列
+    const faiColumns: TableProps<FAIItem>["columns"] = [
+        { title: "FAI编号", dataIndex: "fai_num", width: 80, render: (t: number) => <span className="font-bold text-blue-600">{t}</span> },
+        {
+            title: "SPC编号", dataIndex: "spc", width: 80, render: (t: string | null) => t ? (
+                <Tag color="blue">{t}</Tag>
+            ) : '-'
+        },
+        {
+            title: "分类", dataIndex: "category", width: 90, render: (t: string | null) => {
+                if (!t) return '-'
+                const colorMap: Record<string, string> = {
+                    '几何尺寸': 'blue', '材料性能': 'gold', '表面处理': 'green', '工艺要求': 'purple'
+                }
+                return <Tag color={colorMap[t] || 'default'}>{t}</Tag>
+            }
+        },
+        { title: "标准值(NOM)", dataIndex: "nom", render: (t: string | null) => <span className="font-mono">{t || '-'}</span> },
+        { title: "上公差", dataIndex: "upper_tol", render: (t: string | null) => <span className="font-mono text-emerald-600">{t || '-'}</span> },
+        { title: "下公差", dataIndex: "lower_tol", render: (t: string | null) => <span className="font-mono text-rose-600">{t || '-'}</span> },
+        { title: "符号", dataIndex: "symbol", width: 60, render: (t: string | null) => <span className="font-mono text-lg text-amber-600 font-bold">{t || '-'}</span> },
+        {
+            title: "测量类型", dataIndex: "measure_type", width: 100, render: (t: string | null, record: FAIItem, index: number) => {
+                if (record.alternatives && record.alternatives.length > 0) {
+                    const items: MenuProps['items'] = [
+                        { key: 'current', label: `✓ ${t} (当前)`, disabled: true },
+                        ...record.alternatives.map((alt, altIdx) => ({
+                            key: `alt-${altIdx}`,
+                            label: `${alt.measure_type} (距离:${alt.distance})`,
+                            onClick: () => switchToAlternative(index, alt)
+                        }))
+                    ]
+                    return (
+                        <Dropdown menu={{ items }} trigger={['click']}>
+                            <Button size="small" className="bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100">
+                                {t} <DownOutlined style={{ fontSize: 10 }} />
+                            </Button>
+                        </Dropdown>
+                    )
+                }
+                return t ? <Tag color="purple">{t}</Tag> : '-'
+            }
+        },
+        {
+            title: "尺寸描述", dataIndex: "description", render: (t: string | null) => {
+                const { distance } = parseAlternatives(t)
+                return <span className="text-slate-500 text-xs truncate max-w-[200px] inline-block" title={t || ''}>{distance ? `距离:${distance}` : (t || '-')}</span>
+            }
+        },
+        { title: "页码", dataIndex: "page", width: 60, render: (t: number | null) => <span className="text-slate-400">{t || '-'}</span> },
+    ]
 
     return (
         <div className="flex flex-col h-screen bg-slate-50/50">
-            {/* Toolbar */}
+            {/* 工具栏 */}
             <div className="h-16 border-b bg-white px-6 flex items-center justify-between shadow-sm flex-shrink-0">
                 <div className="flex items-center gap-4">
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                        <Table2 className="h-5 w-5 text-primary" />
+                    <div className="p-2 bg-blue-50 rounded-lg">
+                        <TableOutlined className="text-blue-600" style={{ fontSize: 20 }} />
                     </div>
                     <div>
                         <h2 className="text-lg font-bold text-slate-900">图纸信息提取</h2>
@@ -397,267 +386,126 @@ export default function DrawingExtractPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <Dialog open={showHistory} onOpenChange={(open) => { setShowHistory(open); if (open) loadHistory(); }}>
-                        <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="h-8 gap-2 border-slate-200">
-                                <History className="h-4 w-4" />
-                                历史记录
-                            </Button>
-                        </DialogTrigger>
-                        <DialogContent className="max-w-2xl">
-                            <DialogHeader>
-                                <DialogTitle>提取历史记录</DialogTitle>
-                                <DialogDescription>查看和管理之前提取的PDF文件</DialogDescription>
-                            </DialogHeader>
-                            <div className="max-h-[400px] overflow-y-auto">
-                                {history.length === 0 ? (
-                                    <div className="text-center py-8 text-slate-400">
-                                        <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-                                        <p>暂无历史记录</p>
-                                    </div>
-                                ) : (
-                                    <Table>
-                                        <TableHeader>
-                                            <TableRow>
-                                                <TableHead>文件名</TableHead>
-                                                <TableHead>提取时间</TableHead>
-                                                <TableHead>FAI数量</TableHead>
-                                                <TableHead className="text-right">操作</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {history.map((item) => (
-                                                <TableRow key={item.id}>
-                                                    <TableCell className="font-medium">{item.file_name}</TableCell>
-                                                    <TableCell className="text-slate-500 text-xs">
-                                                        {new Date(item.upload_time).toLocaleString('zh-CN')}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant="secondary">{item.item_count} 条</Badge>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => loadExtractionDetail(item.id)}
-                                                        >
-                                                            查看
-                                                        </Button>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="text-red-500 hover:text-red-600"
-                                                            onClick={() => deleteExtraction(item.id)}
-                                                        >
-                                                            <Trash2 className="h-4 w-4" />
-                                                        </Button>
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                        </TableBody>
-                                    </Table>
-                                )}
-                            </div>
-                        </DialogContent>
-                    </Dialog>
+                    <Button size="small" icon={<HistoryOutlined />} onClick={() => { setShowHistory(true); loadHistory() }}>
+                        历史记录
+                    </Button>
                     <div className="h-8 w-[1px] bg-slate-200 mx-2" />
-                    <User className="h-8 w-8 rounded-full bg-slate-100 p-1.5 text-slate-600 border border-slate-200 shadow-sm" />
+                    <UserOutlined className="h-8 w-8 text-lg rounded-full bg-slate-100 p-1.5 text-slate-600 border border-slate-200 shadow-sm" />
                 </div>
             </div>
 
-            {/* Main Content */}
+            {/* 主内容 */}
             <main className="flex-1 overflow-y-auto p-6">
                 <div className="max-w-6xl mx-auto space-y-6">
-                    {/* Upload Area */}
-                    <Card className="border-2 border-dashed hover:border-primary/50 transition-colors">
-                        <CardContent className="p-8">
-                            <div
-                                className={`flex flex-col items-center justify-center py-12 rounded-xl transition-all cursor-pointer ${isDragging ? 'bg-primary/5 border-primary' : 'bg-slate-50/50'
-                                    }`}
-                                onDragOver={handleDragOver}
-                                onDragLeave={handleDragLeave}
-                                onDrop={handleDrop}
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept=".pdf"
-                                    className="hidden"
-                                    onChange={handleFileSelect}
-                                />
+                    {/* 上传区域 */}
+                    <Card className="border-2 border-dashed hover:border-blue-300 transition-colors">
+                        <div
+                            className={`flex flex-col items-center justify-center py-12 rounded-xl transition-all cursor-pointer ${isDragging ? 'bg-blue-50 border-blue-500' : 'bg-slate-50/50'}`}
+                            onDragOver={handleDragOver}
+                            onDragLeave={handleDragLeave}
+                            onDrop={handleDrop}
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept=".pdf"
+                                className="hidden"
+                                onChange={handleFileSelect}
+                            />
 
-                                {isUploading ? (
-                                    <>
-                                        <Loader2 className="h-16 w-16 text-primary mb-4 animate-spin" />
-                                        <p className="text-lg font-bold text-slate-700">正在解析PDF...</p>
-                                        <p className="text-sm text-slate-500 mt-1">{currentFileName}</p>
-                                    </>
-                                ) : (
-                                    <>
-                                        <div className="h-20 w-20 bg-primary/10 rounded-full flex items-center justify-center mb-4">
-                                            <FileUp className="h-10 w-10 text-primary" />
-                                        </div>
-                                        <p className="text-lg font-bold text-slate-700">拖拽PDF文件到此处，或点击上传</p>
-                                        <p className="text-sm text-slate-400 mt-2">支持工程图纸PDF格式，自动提取FAI尺寸数据</p>
-                                        <Button variant="outline" className="mt-4 gap-2">
-                                            <Upload className="h-4 w-4" />
-                                            选择文件
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
-                        </CardContent>
+                            {isUploading ? (
+                                <>
+                                    <LoadingOutlined style={{ fontSize: 64 }} className="text-blue-600 mb-4" spin />
+                                    <p className="text-lg font-bold text-slate-700">正在解析PDF...</p>
+                                    <p className="text-sm text-slate-500 mt-1">{currentFileName}</p>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="h-20 w-20 bg-blue-50 rounded-full flex items-center justify-center mb-4">
+                                        <CloudUploadOutlined style={{ fontSize: 40 }} className="text-blue-600" />
+                                    </div>
+                                    <p className="text-lg font-bold text-slate-700">拖拽PDF文件到此处，或点击上传</p>
+                                    <p className="text-sm text-slate-400 mt-2">支持工程图纸PDF格式，自动提取FAI尺寸数据</p>
+                                    <Button icon={<UploadOutlined />} className="mt-4">
+                                        选择文件
+                                    </Button>
+                                </>
+                            )}
+                        </div>
                     </Card>
 
-                    {/* Results Table */}
+                    {/* 结果表格 */}
                     {faiData.length > 0 && (
-                        <Card className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <CardHeader className="flex flex-row items-center justify-between pb-4">
+                        <Card>
+                            <div className="flex items-center justify-between mb-4">
                                 <div>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <CheckCircle className="h-5 w-5 text-emerald-500" />
+                                    <h3 className="text-lg font-bold flex items-center gap-2">
+                                        <CheckCircleOutlined className="text-emerald-500" />
                                         FAI数据提取结果
-                                    </CardTitle>
-                                    <CardDescription className="mt-1">
+                                    </h3>
+                                    <p className="text-xs text-gray-400 mt-1">
                                         文件: {currentFileName} | 共提取 {faiData.length} 条FAI数据
-                                    </CardDescription>
+                                    </p>
                                 </div>
-                                <Button variant="outline" size="sm" className="gap-2" onClick={exportCSV}>
-                                    <Download className="h-4 w-4" />
-                                    导出CSV
-                                </Button>
-                                <Button variant="default" size="sm" className="gap-2" onClick={generatePPT} disabled={isGeneratingPPT}>
-                                    {isGeneratingPPT ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <FileText className="h-4 w-4" />
-                                    )}
-                                    {isGeneratingPPT ? '生成中...' : '生成PPT'}
-                                </Button>
-                            </CardHeader>
-                            <CardContent>
-                                <div className="rounded-lg border overflow-hidden">
-                                    <Table>
-                                        <TableHeader className="bg-slate-50">
-                                            <TableRow>
-                                                <TableHead className="w-[80px] font-bold">FAI编号</TableHead>
-                                                <TableHead className="w-[80px] font-bold">SPC编号</TableHead>
-                                                <TableHead className="w-[90px] font-bold">分类</TableHead>
-                                                <TableHead className="font-bold">标准值(NOM)</TableHead>
-                                                <TableHead className="font-bold">上公差</TableHead>
-                                                <TableHead className="font-bold">下公差</TableHead>
-                                                <TableHead className="w-[60px] font-bold">符号</TableHead>
-                                                <TableHead className="w-[100px] font-bold">测量类型</TableHead>
-                                                <TableHead className="font-bold">尺寸描述</TableHead>
-                                                <TableHead className="w-[60px] font-bold">页码</TableHead>
-                                            </TableRow>
-                                        </TableHeader>
-                                        <TableBody>
-                                            {faiData.map((item, index) => {
-                                                const { distance } = parseAlternatives(item.description)
-
-                                                return (
-                                                    <TableRow key={index} className="hover:bg-slate-50/50">
-                                                        <TableCell className="font-bold text-primary">{item.fai_num}</TableCell>
-                                                        <TableCell>
-                                                            {item.spc ? (
-                                                                <Badge variant="outline" className="bg-blue-50 text-blue-600 border-blue-200">
-                                                                    {item.spc}
-                                                                </Badge>
-                                                            ) : '-'}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            {item.category ? (
-                                                                <Badge
-                                                                    variant="outline"
-                                                                    className={
-                                                                        item.category === '几何尺寸' ? 'bg-blue-50 text-blue-600 border-blue-200' :
-                                                                        item.category === '材料性能' ? 'bg-amber-50 text-amber-600 border-amber-200' :
-                                                                        item.category === '表面处理' ? 'bg-green-50 text-green-600 border-green-200' :
-                                                                        item.category === '工艺要求' ? 'bg-purple-50 text-purple-600 border-purple-200' :
-                                                                        'bg-slate-50 text-slate-500 border-slate-200'
-                                                                    }
-                                                                >
-                                                                    {item.category}
-                                                                </Badge>
-                                                            ) : '-'}
-                                                        </TableCell>
-                                                        <TableCell className="font-mono">{item.nom || '-'}</TableCell>
-                                                        <TableCell className="font-mono text-emerald-600">{item.upper_tol || '-'}</TableCell>
-                                                        <TableCell className="font-mono text-rose-600">{item.lower_tol || '-'}</TableCell>
-                                                        <TableCell className="font-mono text-lg text-amber-600 font-bold">{item.symbol || '-'}</TableCell>
-                                                        <TableCell>
-                                                            {item.alternatives && item.alternatives.length > 0 ? (
-                                                                <DropdownMenu>
-                                                                    <DropdownMenuTrigger asChild>
-                                                                        <Button
-                                                                            variant="outline"
-                                                                            size="sm"
-                                                                            className="h-7 gap-1 bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-100"
-                                                                        >
-                                                                            {item.measure_type}
-                                                                            <ChevronDown className="h-3 w-3" />
-                                                                        </Button>
-                                                                    </DropdownMenuTrigger>
-                                                                    <DropdownMenuContent align="start">
-                                                                        <DropdownMenuItem className="text-purple-600 font-medium cursor-default">
-                                                                            ✓ {item.measure_type} (当前)
-                                                                        </DropdownMenuItem>
-                                                                        {item.alternatives.map((alt, altIdx) => (
-                                                                            <DropdownMenuItem
-                                                                                key={altIdx}
-                                                                                onClick={() => switchToAlternative(index, alt)}
-                                                                                className="text-slate-600"
-                                                                            >
-                                                                                {alt.measure_type} (距离:{alt.distance})
-                                                                            </DropdownMenuItem>
-                                                                        ))}
-                                                                    </DropdownMenuContent>
-                                                                </DropdownMenu>
-                                                            ) : item.measure_type ? (
-                                                                <Badge variant="secondary" className="bg-purple-50 text-purple-600 border-purple-200">
-                                                                    {item.measure_type}
-                                                                </Badge>
-                                                            ) : '-'}
-                                                        </TableCell>
-                                                        <TableCell className="text-slate-500 text-xs max-w-[200px] truncate" title={item.description || ''}>
-                                                            {distance ? `距离:${distance}` : (item.description || '-')}
-                                                        </TableCell>
-                                                        <TableCell className="text-slate-400">{item.page || '-'}</TableCell>
-                                                    </TableRow>
-                                                )
-                                            })}
-                                        </TableBody>
-                                    </Table>
+                                <div className="flex gap-2">
+                                    <Button icon={<DownloadOutlined />} onClick={exportCSV}>导出CSV</Button>
+                                    <Button type="primary" icon={isGeneratingPPT ? <LoadingOutlined /> : <FileTextOutlined />} onClick={generatePPT} disabled={isGeneratingPPT}>
+                                        {isGeneratingPPT ? '生成中...' : '生成PPT'}
+                                    </Button>
                                 </div>
-                            </CardContent>
+                            </div>
+                            <Table
+                                dataSource={faiData}
+                                columns={faiColumns}
+                                rowKey={(_, index) => String(index)}
+                                pagination={false}
+                                size="small"
+                                scroll={{ x: true }}
+                            />
                         </Card>
                     )}
 
-                    {/* Empty State */}
+                    {/* 空状态 */}
                     {!isUploading && faiData.length === 0 && (
-                        <Card className="border-slate-200">
-                            <CardContent className="flex flex-col items-center justify-center py-16">
-                                <AlertCircle className="h-16 w-16 text-slate-200 mb-4" />
+                        <Card>
+                            <div className="flex flex-col items-center justify-center py-16">
+                                <ExclamationCircleOutlined style={{ fontSize: 64 }} className="text-slate-200 mb-4" />
                                 <p className="text-lg font-bold text-slate-400">暂无提取数据</p>
                                 <p className="text-sm text-slate-400 mt-1">上传PDF图纸后，FAI数据将显示在此处</p>
-                            </CardContent>
+                            </div>
                         </Card>
                     )}
                 </div>
-                    {/* PPT预览对话框 */}
-                    {pptData && (
-                        <PPTPreviewDialog
-                            open={showPPTPreview}
-                            onOpenChange={setShowPPTPreview}
-                            data={pptData}
-                            onConfirm={handleConfirmGeneratePPT}
-                            isGenerating={isGeneratingPPT}
-                        />
+
+                {/* PPT预览对话框 */}
+                {pptData && (
+                    <PPTPreviewDialog
+                        open={showPPTPreview}
+                        onOpenChange={setShowPPTPreview}
+                        data={pptData}
+                        onConfirm={handleConfirmGeneratePPT}
+                        isGenerating={isGeneratingPPT}
+                    />
+                )}
+
+                {/* 历史记录弹窗 */}
+                <Modal
+                    title="提取历史记录"
+                    open={showHistory}
+                    onCancel={() => setShowHistory(false)}
+                    footer={null}
+                    width={700}
+                >
+                    {history.length === 0 ? (
+                        <div className="text-center py-8 text-slate-400">
+                            <FileTextOutlined style={{ fontSize: 48 }} className="mb-2 opacity-50" />
+                            <p>暂无历史记录</p>
+                        </div>
+                    ) : (
+                        <Table dataSource={history} columns={historyColumns} rowKey="id" pagination={false} />
                     )}
-
-
+                </Modal>
             </main>
         </div>
     )

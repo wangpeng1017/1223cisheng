@@ -1,218 +1,142 @@
 "use client"
 
 import * as React from "react"
+import { useState, useEffect } from "react"
+import {
+    CarOutlined, CheckSquareOutlined, ExperimentOutlined, AimOutlined,
+    PlusOutlined, SearchOutlined, FilterOutlined, ClockCircleOutlined,
+} from "@ant-design/icons"
+import { Button, Tag, Card, Tabs, Table, Input, Modal, App, Spin } from "antd"
+import type { TableProps } from "antd"
 
-import {
-    ShieldCheck,
-    Settings,
-    Truck,
-    PackageCheck,
-    ThermometerSnowflake,
-    Microscope,
-    Plus,
-    Search,
-    Filter,
-    CheckCircle,
-    Clock
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table"
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-import { toast } from "sonner"
+interface PlanRow { id: number; plan_type: string; category: string; item: string; spec_limit: string; tool: string; sample_level: string }
+interface ReliabilityTest { id: number; title: string; description: string; status: string; planned_date: string }
 
 export default function QPlanPage() {
-    const [searchTerm, setSearchTerm] = React.useState("")
-    const [plans, setPlans] = React.useState([
-        { cat: "磁性组件", item: "表面磁通量", limit: "420 - 450 mT", tool: "特斯拉计", sample: "Level II (S-3)" },
-        { cat: "五金件", item: "关键孔径尺寸", limit: "Φ5.02 ±0.01mm", tool: "二次元投影仪", sample: "Level II" },
-        { cat: "PCB 板", item: "阻抗匹配", limit: "4.0 ±0.2 Ω", tool: "数字电桥", sample: "100% 自动测试" },
-        { cat: "包装件", item: "防静电等级", limit: "10^6 - 10^9 Ω", tool: "表面电阻测试仪", sample: "Skip Lot" },
-    ])
+    const [searchTerm, setSearchTerm] = useState("")
+    const [isModalOpen, setIsModalOpen] = useState(false)
+    const [plans, setPlans] = useState<PlanRow[]>([])
+    const [reliabilityTests, setReliabilityTests] = useState<ReliabilityTest[]>([])
+    const [loading, setLoading] = useState(true)
+    const { message } = App.useApp()
 
-    const filteredPlans = plans.filter(p =>
-        p.cat.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    useEffect(() => {
+        Promise.all([
+            fetch("/api/qplan").then(r => r.json()),
+            fetch("/api/reliability-tests").then(r => r.json()),
+        ]).then(([q, rt]) => {
+            setPlans(q); setReliabilityTests(rt)
+        }).catch(() => message.error("加载数据失败"))
+        .finally(() => setLoading(false))
+    }, [])
+
+    const iqcPlans = plans.filter(p => p.plan_type === "IQC")
+    const oqcPlans = plans.filter(p => p.plan_type === "OQC")
+
+    const filteredIqc = iqcPlans.filter(p =>
+        p.category.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.item.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.tool.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
-    return (
-        <div className="p-8 space-y-8 bg-background">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight text-foreground">Q-Plan 管理</h1>
-                    <p className="text-muted-foreground mt-1">质量检验计划、抽样标准与可靠性测试方案定义</p>
-                </div>
-                <Dialog>
-                    <DialogTrigger asChild>
-                        <Button className="gap-2">
-                            <Plus className="h-4 w-4" />
-                            制定质量计划
-                        </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[500px] bg-white">
-                        <DialogHeader>
-                            <DialogTitle>制定 NPI 质量保证计划</DialogTitle>
-                            <DialogDescription>
-                                导入 Control Plan (CP) 模板或手动定义关键检验项。
-                            </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid gap-6 py-4">
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="plan-type" className="text-right font-bold">计划类型</Label>
-                                <Input id="plan-type" placeholder="例如：IQC 阶段、Process 阶段" className="col-span-3" />
-                            </div>
-                            <div className="grid grid-cols-4 items-center gap-4">
-                                <Label htmlFor="product-model" className="text-right font-bold">对接机型</Label>
-                                <Input id="product-model" placeholder="选择关联的产品型号" className="col-span-3" />
-                            </div>
+    const planColumns: TableProps<PlanRow>["columns"] = [
+        { title: "物料类别", dataIndex: "category", render: (t: string) => <span className="font-bold text-sm">{t}</span> },
+        { title: "检验项目", dataIndex: "item", render: (t: string) => <span className="text-sm font-medium">{t}</span> },
+        { title: "判定指标 (U/L Limit)", dataIndex: "spec_limit", render: (t: string) => <span className="font-mono text-xs text-slate-500">{t}</span> },
+        { title: "检验工具/设备", dataIndex: "tool", render: (t: string) => <span className="text-sm font-medium">{t}</span> },
+        { title: "抽样水平", dataIndex: "sample_level", render: (t: string) => <Tag className="font-bold">{t}</Tag> },
+        { title: "操作", key: "action", align: "right", render: (_: any, record: PlanRow) => (
+            <Button type="link" size="small" onClick={() => message.info(`编辑条目：${record.item}`)}>编辑</Button>
+        )},
+    ]
+
+    const tabItems = [
+        {
+            key: "iqc",
+            label: <span className="flex items-center gap-2"><CarOutlined />IQC 来料计划</span>,
+            children: (
+                <Card>
+                    <div className="flex items-center justify-between border-b pb-4 mb-4">
+                        <div>
+                            <h3 className="text-lg font-bold">磁声 Gen3 模型 - IQC 检验清单</h3>
+                            <p className="text-xs text-gray-400">关联标准: GB/T 2828.1 抽样标准, AQL: 0.65</p>
                         </div>
-                        <DialogFooter>
-                            <Button onClick={() => toast.success("质量计划已创建", { description: "检验清单已同步至 MTD 执行端。" })}>立即保存</Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-            </div>
-
-            <div className="flex gap-4">
-                <div className="relative flex-1 shadow-sm">
-                    <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                        placeholder="检索检验标准或测试项..."
-                        className="pl-9 bg-white border-border focus:ring-1 focus:ring-primary"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                <Button variant="outline" className="gap-2" onClick={() => toast.info("高级筛选功能正在开发中...")}>
-                    <Filter className="h-4 w-4" />
-                    筛选标准库
-                </Button>
-            </div>
-
-            <Tabs defaultValue="iqc" className="space-y-6">
-                <TabsList className="bg-muted/50 p-1 border border-border">
-                    <TabsTrigger value="iqc" className="gap-2">
-                        <Truck className="h-4 w-4" />
-                        IQC 来料计划
-                    </TabsTrigger>
-                    <TabsTrigger value="oqc" className="gap-2">
-                        <PackageCheck className="h-4 w-4" />
-                        OQC 出货计划
-                    </TabsTrigger>
-                    <TabsTrigger value="reliability" className="gap-2">
-                        <ThermometerSnowflake className="h-4 w-4" />
-                        可靠性测试 (ORT)
-                    </TabsTrigger>
-                    <TabsTrigger value="metrology" className="gap-2">
-                        <Microscope className="h-4 w-4" />
-                        测量方案设计
-                    </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="iqc" className="space-y-6">
-                    <Card>
-                        <CardHeader className="flex flex-row items-center justify-between border-b border-border/50 pb-4">
-                            <div>
-                                <CardTitle className="text-lg">磁声 Gen3 模型 - IQC 检验清单</CardTitle>
-                                <CardDescription>关联标准: GB/T 2828.1 抽样标准, AQL: 0.65</CardDescription>
+                        <Tag color="processing">当前生效 V1.4</Tag>
+                    </div>
+                    <Table dataSource={filteredIqc} columns={planColumns} rowKey="id" pagination={false} />
+                </Card>
+            )
+        },
+        {
+            key: "oqc",
+            label: <span className="flex items-center gap-2"><CheckSquareOutlined />OQC 出货计划</span>,
+            children: oqcPlans.length > 0
+                ? <Card><Table dataSource={oqcPlans} columns={planColumns} rowKey="id" pagination={false} /></Card>
+                : <Card className="p-8 text-center text-gray-400">OQC 出货计划模块建设中…</Card>
+        },
+        {
+            key: "reliability",
+            label: <span className="flex items-center gap-2"><ExperimentOutlined />可靠性测试 (ORT)</span>,
+            children: (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {reliabilityTests.map((test) => (
+                        <Card key={test.id} hoverable>
+                            <h3 className="text-sm font-bold mb-1">{test.title}</h3>
+                            <p className="text-xs text-gray-400 mb-3">{test.description}</p>
+                            <div className="flex justify-between items-center">
+                                <Tag color={test.status === "已完成" ? "success" : test.status === "进行中" ? "processing" : "warning"}>{test.status}</Tag>
+                                <span className="text-[10px] text-gray-400 flex items-center gap-1"><ClockCircleOutlined /> 计划: {test.planned_date}</span>
                             </div>
-                            <Badge variant="secondary" className="bg-primary/5 text-primary">当前生效 V1.4</Badge>
-                        </CardHeader>
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-slate-50 border-b border-border">
-                                    <TableHead className="font-bold text-slate-800">物料类别</TableHead>
-                                    <TableHead className="font-bold text-slate-800">检验项目</TableHead>
-                                    <TableHead className="font-bold text-slate-800">判定指标 (U/L Limit)</TableHead>
-                                    <TableHead className="font-bold text-slate-800">检验工具/设备</TableHead>
-                                    <TableHead className="font-bold text-slate-800">抽样水平</TableHead>
-                                    <TableHead className="text-right font-bold text-slate-800">操作</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredPlans.map((row, i) => (
-                                    <TableRow key={i} className="group border-border hover:bg-slate-50/50 transition-colors">
-                                        <TableCell className="font-bold text-sm text-slate-900">{row.cat}</TableCell>
-                                        <TableCell className="text-sm font-medium text-slate-700">{row.item}</TableCell>
-                                        <TableCell className="font-mono text-xs text-slate-500">{row.limit}</TableCell>
-                                        <TableCell className="text-sm font-medium text-slate-700">{row.tool}</TableCell>
-                                        <TableCell>
-                                            <Badge className="text-[10px] font-bold bg-slate-100 text-slate-700 border-none">{row.sample}</Badge>
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="text-primary font-bold hover:text-primary/80 opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={() => toast.info(`编辑条目：${row.item}`)}
-                                            >
-                                                编辑
-                                            </Button>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
-                    </Card>
-                </TabsContent>
-
-                <TabsContent value="reliability" className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {[
-                        { title: "恒温恒湿循环", desc: "85℃ / 85% RH, 持续 240H", status: "计划中", icon: ThermometerSnowflake, color: "text-blue-500" },
-                        { title: "盐雾腐蚀测试", desc: "5% NaCl 浓度, 连续 48H", status: "进行中", icon: ShieldCheck, color: "text-emerald-500" },
-                        { title: "跌落强度测试", desc: "1.2m 高度, 水泥地面, 六面各 3 次", status: "已完成", icon: PackageCheck, color: "text-amber-500" },
-                    ].map((test, i) => (
-                        <Card key={i} className="bg-card shadow-sm hover:shadow-md transition-shadow">
-                            <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-                                <div className={`p-2 rounded-lg bg-muted ${test.color} bg-opacity-10`}>
-                                    <test.icon className="h-5 w-5" />
-                                </div>
-                                <div className="flex-1">
-                                    <CardTitle className="text-sm font-bold">{test.title}</CardTitle>
-                                    <CardDescription className="text-xs pt-0.5">{test.desc}</CardDescription>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="flex justify-between items-center pt-2">
-                                <Badge variant={test.status === "已完成" ? "secondary" : "outline"}>
-                                    {test.status}
-                                </Badge>
-                                <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                    <Clock className="h-3 w-3" />
-                                    计划: 12-25
-                                </span>
-                            </CardContent>
                         </Card>
                     ))}
-                </TabsContent>
+                </div>
+            )
+        },
+        {
+            key: "metrology",
+            label: <span className="flex items-center gap-2"><AimOutlined />测量方案设计</span>,
+            children: (
+                <Card className="flex flex-col items-center justify-center h-80 border-dashed">
+                    <AimOutlined style={{ fontSize: 48 }} className="text-gray-200 mb-4" />
+                    <p className="text-sm text-gray-400">测量方案策划面板：请先从 [产品主数据] 导入 3D 测量点位分布图</p>
+                    <Button type="link" size="small" className="mt-2" onClick={() => message.info("正在调齐 3D 图纸库...")}>浏览图纸库</Button>
+                </Card>
+            )
+        },
+    ]
 
-                <TabsContent value="metrology">
-                    <Card className="flex flex-col items-center justify-center h-80 bg-muted/10 border-dashed">
-                        <Microscope className="h-12 w-12 text-muted-foreground opacity-30 mb-4" />
-                        <p className="text-sm text-muted-foreground">测量方案策划面板：请先从 [产品主数据] 导入 3D 测量点位分布图</p>
-                        <Button variant="link" className="text-xs mt-2" onClick={() => toast.info("正在调齐 3D 图纸库...")}>浏览图纸库</Button>
-                    </Card>
-                </TabsContent>
-            </Tabs>
+    if (loading) return <div className="flex items-center justify-center h-96"><Spin size="large" /></div>
+
+    return (
+        <div className="p-8 space-y-8">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Q-Plan 管理</h1>
+                    <p className="text-gray-500 mt-1">质量检验计划、抽样标准与可靠性测试方案定义</p>
+                </div>
+                <Button type="primary" icon={<PlusOutlined />} onClick={() => setIsModalOpen(true)}>制定质量计划</Button>
+            </div>
+            <div className="flex gap-4">
+                <Input placeholder="检索检验标准或测试项..." prefix={<SearchOutlined className="text-gray-400" />}
+                    value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="flex-1" allowClear />
+                <Button icon={<FilterOutlined />} onClick={() => message.info("高级筛选功能正在开发中...")}>筛选标准库</Button>
+            </div>
+            <Tabs defaultActiveKey="iqc" items={tabItems} />
+            <Modal title="制定 NPI 质量保证计划" open={isModalOpen}
+                onOk={() => { message.success("质量计划已创建"); setIsModalOpen(false) }}
+                onCancel={() => setIsModalOpen(false)} okText="立即保存">
+                <p className="text-gray-400 text-sm mb-4">导入 Control Plan (CP) 模板或手动定义关键检验项。</p>
+                <div className="grid gap-4 py-2">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <span className="text-right text-sm font-bold">计划类型</span>
+                        <Input className="col-span-3" placeholder="例如：IQC 阶段、Process 阶段" />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                        <span className="text-right text-sm font-bold">对接机型</span>
+                        <Input className="col-span-3" placeholder="选择关联的产品型号" />
+                    </div>
+                </div>
+            </Modal>
         </div>
     )
 }

@@ -1,13 +1,24 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/app-sidebar";
-import { AppNavbar } from "@/components/app-navbar";
-import { Toaster } from "@/components/ui/sonner";
+import { AntdRegistry } from "@ant-design/nextjs-registry";
+import { ConfigProvider, App } from "antd";
+import zhCN from "antd/locale/zh_CN";
+import { AppLayout } from "@/components/app-layout";
 
 export const metadata: Metadata = {
   title: "宁波磁声 NPI 研发协同平台",
   description: "Next-generation R&D collaboration platform for NPI process",
+};
+
+// antd 主题配置，对标当前设计风格
+const theme = {
+  token: {
+    colorPrimary: "#2563eb",
+    borderRadius: 8,
+    colorBgContainer: "#ffffff",
+    fontFamily:
+      "var(--font-geist-sans), -apple-system, BlinkMacSystemFont, sans-serif",
+  },
 };
 
 export default function RootLayout({
@@ -18,16 +29,13 @@ export default function RootLayout({
   return (
     <html lang="zh-CN">
       <body className="antialiased">
-        <SidebarProvider>
-          <AppSidebar />
-          <SidebarInset>
-            <AppNavbar />
-            <main className="flex-1 overflow-y-auto p-0">
-              {children}
-            </main>
-          </SidebarInset>
-        </SidebarProvider>
-        <Toaster richColors position="top-right" />
+        <AntdRegistry>
+          <ConfigProvider locale={zhCN} theme={theme}>
+            <App>
+              <AppLayout>{children}</AppLayout>
+            </App>
+          </ConfigProvider>
+        </AntdRegistry>
       </body>
     </html>
   );

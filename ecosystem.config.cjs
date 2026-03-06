@@ -1,15 +1,14 @@
 /**
  * PM2 配置文件 - npi-demo 项目
- * 内存限制: 512MB（避免影响其他应用）
- * 端口: 3002
+ * 使用 standalone 模式启动（node server.js）
+ * 端口: 3002，内存限制: 512MB
  */
 
 module.exports = {
   apps: [
     {
       name: 'npi-demo',
-      script: 'node_modules/next/dist/bin/next',
-      args: 'start -p 3002',
+      script: 'server.js',
       cwd: '/root/npi-demo',
       instances: 1,
       exec_mode: 'fork',
@@ -19,6 +18,7 @@ module.exports = {
       env: {
         NODE_ENV: 'production',
         PORT: 3002,
+        HOSTNAME: '0.0.0.0',
       },
       error_file: '/root/.pm2/logs/npi-demo-error.log',
       out_file: '/root/.pm2/logs/npi-demo-out.log',

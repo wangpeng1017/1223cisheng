@@ -1,12 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { FileText } from "lucide-react"
+import { Drawer, Button, Input, Select } from "antd"
+import { FileTextOutlined } from "@ant-design/icons"
 
 const API_BASE = "http://8.130.182.148:8001/api"
 
@@ -138,89 +134,80 @@ export function FixtureSheet({
   }
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-md">
-        <SheetHeader>
-          <SheetTitle>{fixture ? "编辑夹具" : "添加夹具"}</SheetTitle>
-        </SheetHeader>
-
-        <div className="space-y-4 px-4 py-4">
-          <div>
-            <Label>夹具编号 *</Label>
-            <Input
-              value={formData.fixture_no}
-              onChange={(e) => setFormData({ ...formData, fixture_no: e.target.value })}
-              placeholder="J-J510-1#"
-            />
-          </div>
-
-          <div>
-            <Label>尺寸</Label>
-            <Input
-              value={formData.size}
-              onChange={(e) => setFormData({ ...formData, size: e.target.value })}
-              placeholder="189*36*12"
-            />
-          </div>
-
-          <div>
-            <Label>材料</Label>
-            <Input
-              value={formData.material}
-              onChange={(e) => setFormData({ ...formData, material: e.target.value })}
-              placeholder="Electric board"
-            />
-          </div>
-
-          <div>
-            <Label>备注</Label>
-            <Input
-              value={formData.remark}
-              onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
-              placeholder="可选备注"
-            />
-          </div>
-
-          <div>
-            <Label>PPT 模板</Label>
-            <div className="flex gap-2">
-              <Select
-                value={formData.ppt_template_id?.toString() || ""}
-                onValueChange={(v) => setFormData({ ...formData, ppt_template_id: parseInt(v) })}
-              >
-                <SelectTrigger className="flex-1">
-                  <SelectValue placeholder="选择模板" />
-                </SelectTrigger>
-                <SelectContent>
-                  {templates.map((t) => (
-                    <SelectItem key={t.id} value={t.id.toString()}>
-                      {t.name} ({t.slide_count}页)
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => {
-                  onOpenChange(false)
-                  onOpenTemplateManage()
-                }}
-                title="管理模板"
-              >
-                <FileText className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+    <Drawer
+      title={fixture ? "编辑夹具" : "添加夹具"}
+      open={open}
+      onClose={() => onOpenChange(false)}
+      width={440}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button onClick={() => onOpenChange(false)}>取消</Button>
+          <Button type="primary" onClick={handleSave} loading={loading}>保存</Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <div className="mb-1 text-sm font-medium">夹具编号 *</div>
+          <Input
+            value={formData.fixture_no}
+            onChange={(e) => setFormData({ ...formData, fixture_no: e.target.value })}
+            placeholder="J-J510-1#"
+          />
         </div>
 
-        <SheetFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button onClick={handleSave} disabled={loading}>
-            {loading ? "保存中..." : "保存"}
-          </Button>
-        </SheetFooter>
-      </SheetContent>
-    </Sheet>
+        <div>
+          <div className="mb-1 text-sm font-medium">尺寸</div>
+          <Input
+            value={formData.size}
+            onChange={(e) => setFormData({ ...formData, size: e.target.value })}
+            placeholder="189*36*12"
+          />
+        </div>
+
+        <div>
+          <div className="mb-1 text-sm font-medium">材料</div>
+          <Input
+            value={formData.material}
+            onChange={(e) => setFormData({ ...formData, material: e.target.value })}
+            placeholder="Electric board"
+          />
+        </div>
+
+        <div>
+          <div className="mb-1 text-sm font-medium">备注</div>
+          <Input
+            value={formData.remark}
+            onChange={(e) => setFormData({ ...formData, remark: e.target.value })}
+            placeholder="可选备注"
+          />
+        </div>
+
+        <div>
+          <div className="mb-1 text-sm font-medium">PPT 模板</div>
+          <div className="flex gap-2">
+            <Select
+              value={formData.ppt_template_id}
+              onChange={(v) => setFormData({ ...formData, ppt_template_id: v })}
+              placeholder="选择模板"
+              className="flex-1"
+              allowClear
+              options={templates.map((t) => ({
+                value: t.id,
+                label: `${t.name} (${t.slide_count}页)`,
+              }))}
+            />
+            <Button
+              icon={<FileTextOutlined />}
+              onClick={() => {
+                onOpenChange(false)
+                onOpenTemplateManage()
+              }}
+              title="管理模板"
+            />
+          </div>
+        </div>
+      </div>
+    </Drawer>
   )
 }

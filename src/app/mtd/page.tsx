@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Button, Card, Tabs, Table, Progress, Modal, message } from "antd"
+import { Button, Card, Tabs, Table, Progress, Modal, App } from "antd"
 import type { TableProps, TabsProps } from "antd"
-import { Plus, Settings, Wrench, Package, Loader2 } from "lucide-react"
+import { PlusOutlined, SettingOutlined, ToolOutlined, InboxOutlined, LoadingOutlined } from "@ant-design/icons"
 import { ProjectSheet, EquipmentSheet, FixtureSheet, TemplateManageSheet } from "@/components/mtd"
 
 const API_BASE = "http://8.130.182.148:8001/api"
@@ -46,18 +46,7 @@ interface FAIExtraction {
   item_count: number
 }
 
-interface FAIItem {
-  fai_num: string
-  spc: string
-  specification: string
-  description: string
-  cpk_method: string
-  cpk_fixture: string
-  inprocess_method: string
-  inprocess_fixture: string
-  location: string
-  cross_check_by: string
-}
+
 
 interface PPTTemplate {
   id: number
@@ -65,9 +54,11 @@ interface PPTTemplate {
 }
 
 export default function MTDPage() {
+  const { message } = App.useApp()
   const [projects, setProjects] = useState<MTDProject[]>([])
   const [equipment, setEquipment] = useState<Equipment[]>([])
   const [fixtures, setFixtures] = useState<Fixture[]>([])
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [extractions, setExtractions] = useState<FAIExtraction[]>([])
   const [templates, setTemplates] = useState<PPTTemplate[]>([])
   const [activeTab, setActiveTab] = useState("projects")
@@ -346,14 +337,14 @@ export default function MTDPage() {
       key: "projects",
       label: (
         <span className="flex items-center gap-2">
-          <Package size={16} />
+          <InboxOutlined />
           项目
         </span>
       ),
       children: (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button type="primary" icon={<Plus size={16} />} onClick={() => openProjectSheet()}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => openProjectSheet()}>
               新建项目
             </Button>
           </div>
@@ -371,14 +362,14 @@ export default function MTDPage() {
       key: "equipment",
       label: (
         <span className="flex items-center gap-2">
-          <Settings size={16} />
+          <SettingOutlined />
           设备
         </span>
       ),
       children: (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button type="primary" icon={<Plus size={16} />} onClick={() => openEquipmentSheet()}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => openEquipmentSheet()}>
               添加设备
             </Button>
           </div>
@@ -396,14 +387,14 @@ export default function MTDPage() {
       key: "fixtures",
       label: (
         <span className="flex items-center gap-2">
-          <Wrench size={16} />
+          <ToolOutlined />
           夹具
         </span>
       ),
       children: (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button type="primary" icon={<Plus size={16} />} onClick={() => openFixtureSheet()}>
+            <Button type="primary" icon={<PlusOutlined />} onClick={() => openFixtureSheet()}>
               添加夹具
             </Button>
           </div>
@@ -432,7 +423,7 @@ export default function MTDPage() {
       {generating && (
         <Card className="mb-6 border-blue-200 bg-blue-50">
           <div className="flex items-center gap-3 mb-2">
-            <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+            <LoadingOutlined style={{ fontSize: 20 }} className="text-blue-600" />
             <span className="font-medium text-blue-800">{progressMsg}</span>
           </div>
           <Progress percent={progress} className="mb-1" />
