@@ -147,7 +147,7 @@ export default function StpViewer({ file, height = 350, comparisonData, showDime
                 const occtImportJs = await import("occt-import-js")
                 const occt = await occtImportJs.default({
                     locateFile: (name: string) => {
-                        if (name.endsWith(".wasm")) return "/occt-import-js.wasm"
+                        if (name.endsWith(".wasm")) return "/api/serve-file/occt-import-js.wasm"
                         return name
                     },
                 } as any)
