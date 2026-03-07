@@ -31,7 +31,7 @@ export default function DashboardPage() {
   useEffect(() => {
     fetch("/api/dashboard")
       .then(res => res.json())
-      .then(setData)
+      .then(d => { if (d && d.stats) setData(d); else message.error("看板数据格式异常") })
       .catch(() => message.error("加载看板数据失败"))
       .finally(() => setLoading(false))
   }, [])

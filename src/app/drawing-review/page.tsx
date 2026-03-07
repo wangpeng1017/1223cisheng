@@ -19,6 +19,8 @@ import {
 import type { TableProps } from "antd"
 
 const { TextArea } = Input
+import dynamic from "next/dynamic"
+const StpViewer = dynamic(() => import("@/components/StpViewer"), { ssr: false })
 
 // ========== 类型定义 ==========
 interface DRIssue {
@@ -123,7 +125,10 @@ export default function DrawingReviewPage() {
         mtd: { assignee: "", deadline: "", status: "未分配" },
         dfm: { assignee: "", deadline: "", status: "未分配" },
     })
-    const [previewSlide, setPreviewSlide] = useState<{ visible: boolean; index: number; pages: { title: string; img: string }[] }>({ visible: false, index: 0, pages: [] })
+    const [previewSlide, setPreviewSlide] = useState<{
+        visible: boolean; index: number;
+        pages: { title: string; type: "cover" | "summary" | "detail"; issue?: DRIssue; issueIdx?: number }[]
+    }>({ visible: false, index: 0, pages: [] })
     const [newIssue, setNewIssue] = useState({
         pptPage: "", faiSpc: "", category: "尺寸公差", description: "", drawingSpec: "", suggestion: "",
         severity: "major" as "critical" | "major" | "minor",
@@ -453,13 +458,26 @@ export default function DrawingReviewPage() {
                 </Card>
             )}
 
-            {/* 图纸预览 */}
-            {uploadedPdfUrl && (
-                <Card title="2D 图纸预览" size="small" extra={<Button size="small" icon={<EyeOutlined />} onClick={() => setShowPdfViewer(true)}>全屏查看</Button>}>
-                    <div className="bg-slate-100 rounded-lg overflow-hidden" style={{ height: 350 }}>
-                        <iframe src={`${uploadedPdfUrl}#toolbar=0&navpanes=0`} className="w-full h-full border-0" title="图纸预览" />
-                    </div>
-                </Card>
+            {/* 图纸预览: 2D + 3D 并排 */}
+            {(uploadedPdfUrl || stpFile) && (
+                <Row gutter={16}>
+                    {uploadedPdfUrl && (
+                        <Col span={stpFile ? 12 : 24}>
+                            <Card title="2D 图纸预览" size="small" extra={<Button size="small" icon={<EyeOutlined />} onClick={() => setShowPdfViewer(true)}>全屏查看</Button>}>
+                                <div className="bg-slate-100 rounded-lg overflow-hidden" style={{ height: 350 }}>
+                                    <iframe src={`${uploadedPdfUrl}#toolbar=0&navpanes=0`} className="w-full h-full border-0" title="图纸预览" />
+                                </div>
+                            </Card>
+                        </Col>
+                    )}
+                    {stpFile && (
+                        <Col span={uploadedPdfUrl ? 12 : 24}>
+                            <Card title={<span className="flex items-center gap-2">3D 模型预览 <span className="text-xs text-gray-400 font-normal">鼠标拖拽旋转 · 滚轮缩放</span></span>} size="small">
+                                <StpViewer file={stpFile} height={350} comparisonData={comparisonResult} showDimensions={true} />
+                            </Card>
+                        </Col>
+                    )}
+                </Row>
             )}
 
             {/* 操作按钮 */}
@@ -721,20 +739,25 @@ export default function DrawingReviewPage() {
                     <Alert message={`DR 报告已生成 · 封面 + ${selectedReportIssues.length} 组问题页（汇总+详情）· 共 ${1 + selectedReportIssues.length * 2} 页`} type="success" showIcon className="mb-4" />
                     <div className="grid grid-cols-5 gap-3 mb-4">
                         {(() => {
-                            const allPages = [
-                                { title: "封面页", desc: "Cover" },
+                            const allPages: { title: string; desc: string; type: "cover" | "summary" | "detail"; issue?: DRIssue; issueIdx?: number }[] = [
+                                { title: "封面页", desc: "Cover", type: "cover" },
                                 ...selectedReportIssues.flatMap((item, i) => [
-                                    { title: `#${i+1} 汇总`, desc: item.category },
-                                    { title: `#${i+1} 详情`, desc: item.description.substring(0, 20) + "..." },
+                                    { title: `#${i+1} 汇总`, desc: item.category, type: "summary" as const, issue: item, issueIdx: i },
+                                    { title: `#${i+1} 详情`, desc: item.description.substring(0, 20) + "...", type: "detail" as const, issue: item, issueIdx: i },
                                 ]),
                             ]
                             return allPages.map((page, i) => (
-                                <div key={i} className="border rounded-lg p-3 bg-slate-50 hover:border-blue-400 transition-all">
+                                <div key={i} className="border rounded-lg p-3 bg-slate-50 hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group"
+                                    onClick={() => setPreviewSlide({
+                                        visible: true, index: i,
+                                        pages: allPages.map(p => ({ title: p.title, type: p.type, issue: p.issue, issueIdx: p.issueIdx }))
+                                    })}>
                                     <div className="flex items-center gap-2 mb-1">
-                                        <div className="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">P{i + 1}</div>
+                                        <div className="bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded font-mono group-hover:bg-blue-700">P{i + 1}</div>
                                         <span className="text-xs font-bold">{page.title}</span>
                                     </div>
                                     <p className="text-[10px] text-gray-500 truncate">{page.desc}</p>
+                                    <div className="text-[9px] text-blue-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">点击预览</div>
                                 </div>
                             ))
                         })()}
@@ -857,10 +880,123 @@ export default function DrawingReviewPage() {
             {/* ===== 弹窗 ===== */}
             <Modal title={<div className="flex items-center justify-between pr-8"><span>幻灯片预览 — {previewSlide.pages[previewSlide.index]?.title}</span><span className="text-sm text-gray-400 font-normal">第 {previewSlide.index + 1} / {previewSlide.pages.length} 页</span></div>}
                 open={previewSlide.visible} onCancel={() => setPreviewSlide(prev => ({ ...prev, visible: false }))} width="90%"
-                footer={<div className="flex items-center justify-between"><Button disabled={previewSlide.index === 0} onClick={() => setPreviewSlide(prev => ({ ...prev, index: prev.index - 1 }))}>上一页</Button><span className="text-sm text-gray-500">点击左右按钮翻页</span><Button disabled={previewSlide.index >= previewSlide.pages.length - 1} onClick={() => setPreviewSlide(prev => ({ ...prev, index: prev.index + 1 }))}>下一页</Button></div>}
+                footer={<div className="flex items-center justify-between"><Button disabled={previewSlide.index === 0} onClick={() => setPreviewSlide(prev => ({ ...prev, index: prev.index - 1 }))}>上一页</Button><span className="text-sm text-gray-500">点击左右按钮翻页 · 或使用键盘 ← →</span><Button disabled={previewSlide.index >= previewSlide.pages.length - 1} onClick={() => setPreviewSlide(prev => ({ ...prev, index: prev.index + 1 }))}>下一页</Button></div>}
                 style={{ top: 20 }}>
-                <div className="bg-slate-100 rounded-lg p-4 flex items-center justify-center" style={{ minHeight: "70vh" }}>
-                    {previewSlide.pages[previewSlide.index] && <img src={previewSlide.pages[previewSlide.index].img} alt={previewSlide.pages[previewSlide.index].title} className="max-w-full max-h-[70vh] object-contain rounded shadow-lg" />}
+                <div className="bg-slate-200 rounded-lg p-6 flex items-center justify-center" style={{ minHeight: "70vh" }}>
+                    {(() => {
+                        const cur = previewSlide.pages[previewSlide.index]
+                        if (!cur) return null
+                        const slideStyle: React.CSSProperties = { width: "100%", maxWidth: 960, aspectRatio: "16/9", background: "#fff", borderRadius: 8, boxShadow: "0 8px 32px rgba(0,0,0,0.15)", padding: 32, position: "relative", overflow: "hidden", display: "flex", flexDirection: "column" }
+
+                        if (cur.type === "cover") {
+                            return (
+                                <div style={slideStyle}>
+                                    <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+                                        <h1 style={{ fontSize: 28, fontWeight: 700, color: "#1F3864", marginBottom: 8 }}>
+                                            {projectInfo.projectName} Drawing Review
+                                        </h1>
+                                        <h2 style={{ fontSize: 18, color: "#1F3864", fontWeight: 400, marginBottom: 32 }}>
+                                            {projectInfo.productName}
+                                        </h2>
+                                        <div style={{ fontSize: 13, color: "#333", lineHeight: 2, marginTop: 16, fontFamily: "monospace" }}>
+                                            {projectInfo.partNumber}
+                                        </div>
+                                    </div>
+                                    <div style={{ borderTop: "1px solid #ddd", paddingTop: 16, display: "flex", justifyContent: "space-between", color: "#666", fontSize: 14 }}>
+                                        <span>Magsound</span>
+                                        <span>{projectInfo.reviewDate}</span>
+                                    </div>
+                                </div>
+                            )
+                        }
+
+                        if (cur.type === "summary" && cur.issue) {
+                            const iss = cur.issue
+                            return (
+                                <div style={slideStyle}>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1F3864", marginBottom: 16, paddingBottom: 8, borderBottom: "2px solid #4472C4" }}>
+                                        {projectInfo.projectName} | DWG Review | {projectInfo.productName}_{projectInfo.partNumber}
+                                    </div>
+                                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, flex: 1 }}>
+                                        <thead>
+                                            <tr style={{ background: "#1F3864", color: "#fff" }}>
+                                                {["No.", "Page", "FAI/SPC", "Description", "DWG Spec", "Proposal", "PD Disposition"].map(h => (
+                                                    <th key={h} style={{ padding: "8px 6px", textAlign: "center", fontWeight: 600, border: "1px solid #8FAADC" }}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td style={{ padding: "8px 6px", textAlign: "center", border: "1px solid #ccc", width: 40 }}>{iss.seqNo}</td>
+                                                <td style={{ padding: "8px 6px", textAlign: "center", border: "1px solid #ccc", width: 40 }}>{iss.pptPage || (cur.issueIdx ?? 0) + 1}</td>
+                                                <td style={{ padding: "8px 6px", textAlign: "center", border: "1px solid #ccc", width: 60 }}>{iss.faiSpc || "/"}</td>
+                                                <td style={{ padding: "8px 6px", border: "1px solid #ccc" }}>{iss.description}</td>
+                                                <td style={{ padding: "8px 6px", border: "1px solid #ccc", width: 100 }}>{iss.drawingSpec}</td>
+                                                <td style={{ padding: "8px 6px", border: "1px solid #ccc" }}>{iss.suggestion}</td>
+                                                <td style={{ padding: "8px 6px", border: "1px solid #ccc", width: 100 }}>{iss.pdOpinion || ""}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )
+                        }
+
+                        if (cur.type === "detail" && cur.issue) {
+                            const iss = cur.issue
+                            return (
+                                <div style={slideStyle}>
+                                    <div style={{ fontSize: 14, fontWeight: 700, color: "#1F3864", marginBottom: 16, paddingBottom: 8, borderBottom: "2px solid #4472C4" }}>
+                                        DWG Review | {projectInfo.productName} Callout/Definition
+                                    </div>
+                                    <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
+                                        <table style={{ borderCollapse: "collapse", fontSize: 11, flex: 1 }}>
+                                            <tbody>
+                                                {[
+                                                    ["Dimension", iss.faiSpc || "/"],
+                                                    ["Page", iss.pptPage || String((cur.issueIdx ?? 0) + 1)],
+                                                    ["Issue Description", iss.description],
+                                                    ["Proposal", iss.suggestion],
+                                                ].map(([label, val]) => (
+                                                    <tr key={label}>
+                                                        <td style={{ padding: "6px 10px", background: "#4472C4", color: "#fff", fontWeight: 600, border: "1px solid #8FAADC", width: 140, whiteSpace: "nowrap" }}>{label}</td>
+                                                        <td style={{ padding: "6px 10px", border: "1px solid #ccc" }}>{val}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                        <table style={{ borderCollapse: "collapse", fontSize: 11, width: 200 }}>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ padding: "6px 10px", background: "#1F3864", color: "#fff", fontWeight: 600, border: "1px solid #8FAADC", width: 40 }}>PD</td>
+                                                    <td style={{ padding: "6px 10px", border: "1px solid #ccc" }}>{iss.pdOpinion || ""}</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11, flex: 1 }}>
+                                        <thead>
+                                            <tr style={{ background: "#1F3864", color: "#fff" }}>
+                                                {["2D Drawing", "Legacy Best Practice", "Proposal"].map(h => (
+                                                    <th key={h} style={{ padding: "8px 10px", textAlign: "center", fontWeight: 600, border: "1px solid #8FAADC", width: "33.3%" }}>{h}</th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td style={{ padding: "12px 10px", border: "1px solid #ccc", verticalAlign: "top" }}>
+                                                    <div style={{ color: "#666", fontSize: 10, marginBottom: 4 }}>DWG Spec: {iss.drawingSpec}</div>
+                                                    <div>{iss.description}</div>
+                                                </td>
+                                                <td style={{ padding: "12px 10px", border: "1px solid #ccc", textAlign: "center", verticalAlign: "top", color: "#999" }}>/</td>
+                                                <td style={{ padding: "12px 10px", border: "1px solid #ccc", verticalAlign: "top" }}>{iss.suggestion}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )
+                        }
+                        return null
+                    })()}
                 </div>
             </Modal>
 
